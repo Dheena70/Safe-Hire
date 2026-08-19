@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+
+# File-based data store — contains real user emails and password hashes
+users.json
+predictions.json

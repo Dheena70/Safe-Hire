@@ -1,0 +1,679 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+import pandas as pd
+import numpy as np
+import joblib
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
+from scipy.sparse import hstack
+import bcrypt
+import pymongo
+from datetime import datetime, timedelta
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+app = Flask(__name__)
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
+jwt = JWTManager(app)
+
+# Emails allowed to hold the admin role, e.g. "owner@example.com,ops@example.com"
+ADMIN_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv('ADMIN_EMAILS', '').split(',')
+    if email.strip()
+}
+
+def resolve_role(user):
+    """An email in ADMIN_EMAILS is always treated as admin, even if the
+    stored record predates the 'role' field or was edited by hand."""
+    if user.get('email', '').lower() in ADMIN_EMAILS:
+        return 'admin'
+    return user.get('role', 'user')
+
+# Enable CORS
+CORS(app)
+
+# Download NLTK data (only needed once). Wrapped defensively: a failed
+# download (no internet at that moment, corporate proxy/firewall, NLTK's
+# server being slow) must not crash the whole process before Flask even
+# starts — that's what makes "python app.py" die silently and leaves the
+# frontend reporting "could not reach the server."
+NLTK_READY = True
+for resource, path in [('punkt', 'tokenizers/punkt'), ('stopwords', 'corpora/stopwords'), ('wordnet', 'corpora/wordnet')]:
+    try:
+        nltk.data.find(path)
+    except LookupError:
+        try:
+            nltk.download(resource, quiet=True)
+            nltk.data.find(path)
+        except Exception as e:
+            print(f"WARNING: could not download NLTK resource '{resource}' ({e}). "
+                  f"Falling back to basic text processing without it.")
+            NLTK_READY = False
+
+class JobFraudDetector:
+    def __init__(self):
+        self.tfidf_vectorizer = None
+        self.scaler = None
+        self.logistic_model = None
+        self.rf_model = None
+        self.lemmatizer = WordNetLemmatizer()
+
+        # A small built-in fallback list so the app still works even if NLTK's
+        # stopwords corpus couldn't be downloaded (e.g. no internet on first run).
+        _fallback_stopwords = {
+            'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+            'be', 'been', 'being', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+            'this', 'that', 'it', 'as', 'by', 'from', 'you', 'your', 'we', 'our'
+        }
+        try:
+            self.stop_words = set(stopwords.words('english'))
+        except LookupError:
+            print("WARNING: NLTK stopwords unavailable, using a small built-in fallback list.")
+            self.stop_words = _fallback_stopwords
+        
+        # Suspicious keywords for fake jobs
+        self.suspicious_keywords = [
+            'urgent', 'immediate', 'work from home', 'no experience', 'earn money',
+            'quick money', 'easy money', 'payment required', 'training fee',
+            'deposit', 'investment', 'unlimited earning', 'guaranteed job',
+            'no interview', 'immediate hiring', 'start today', 'weekly payment',
+            'data entry', 'form filling', 'ad posting', 'click ads', 'survey'
+        ]
+        
+        # Professional keywords for legitimate jobs
+        self.professional_keywords = [
+            'software development', 'machine learning', 'data science', 'web development',
+            'mobile development', 'cloud computing', 'devops', 'cybersecurity',
+            'artificial intelligence', 'deep learning', 'backend', 'frontend',
+            'full stack', 'database', 'api development', 'testing', 'ui/ux',
+            'project management', 'business analysis', 'marketing', 'sales',
+            'human resources', 'finance', 'accounting', 'research', 'analytics'
+        ]
+        
+        # MCA registered companies (sample data)
+        self.mca_companies = [
+            'microsoft india private limited',
+            'google india private limited',
+            'amazon india private limited',
+            'tata consultancy services',
+            'infosys limited',
+            'wipro limited',
+            'hcl technologies',
+            'tech mahindra',
+            'larsen & toubro infotech',
+            'mindtree limited'
+        ]
+        
+        # Known scam companies (sample data)
+        self.scam_companies = [
+            'quick money solutions',
+            'urgent hiring pvt ltd',
+            'easy earn technologies',
+            'global consulting services',
+            'instant job solutions'
+        ]
+        
+        self.load_models()
+
+    def load_models(self):
+        """Load trained ML models"""
+        # Resolve paths relative to this file's own location, not the
+        # current working directory — otherwise `python app.py` only finds
+        # the models when launched from inside backend/ specifically, and
+        # silently falls back to dummy models everywhere else.
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(base_dir, '..', 'ml_models')
+
+        try:
+            self.tfidf_vectorizer = joblib.load(os.path.join(models_dir, 'tfidf_vectorizer.joblib'))
+            self.scaler = joblib.load(os.path.join(models_dir, 'meta_scaler.joblib'))
+            self.logistic_model = joblib.load(os.path.join(models_dir, 'logistic_model.joblib'))
+            self.rf_model = joblib.load(os.path.join(models_dir, 'rf_model.joblib'))
+            print("Models loaded successfully!")
+        except FileNotFoundError:
+            print(f"Models not found in {models_dir}. Please run train_models.py first.")
+            # Create dummy models for testing
+            self.tfidf_vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+            self.scaler = StandardScaler()
+            self.logistic_model = None
+            self.rf_model = None
+
+    def preprocess_text(self, text):
+        """Clean and preprocess text data"""
+        if pd.isna(text):
+            return ""
+        
+        text = str(text).lower()
+        text = re.sub(r'[^a-zA-Z\s]', '', text)
+        words = text.split()
+        words = [self.lemmatizer.lemmatize(word) for word in words if word not in self.stop_words]
+        return ' '.join(words)
+
+    def extract_features(self, company_name, title, description, email, website):
+        """Extract features from input data"""
+        features = {}
+        
+        # Text preprocessing
+        clean_description = self.preprocess_text(description)
+        clean_title = self.preprocess_text(title)
+        clean_company = self.preprocess_text(company_name)
+        
+        # Suspicious keyword count
+        features['suspicious_keyword_count'] = sum(
+            1 for keyword in self.suspicious_keywords if keyword in clean_description
+        )
+        
+        # Professional keyword count
+        features['professional_keyword_count'] = sum(
+            1 for keyword in self.professional_keywords if keyword in clean_description
+        )
+        
+        # Text length features
+        features['description_length'] = len(str(description))
+        features['title_length'] = len(str(title))
+        features['company_name_length'] = len(str(company_name))
+        
+        # Email domain features
+        def is_free_email(email):
+            if not email:
+                return 1
+            free_domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'rediff.com']
+            return 1 if any(domain in email.lower() for domain in free_domains) else 0
+        
+        features['is_free_email'] = is_free_email(email)
+        
+        # Website features
+        features['has_website'] = 0 if not website or website.strip() == '' else 1
+        
+        # Domain mismatch feature
+        def domain_mismatch(email, website):
+            if not email or not website:
+                return 1
+            email_domain = email.split('@')[-1].lower() if '@' in email else ''
+            website_domain = website.lower()
+            return 0 if email_domain and email_domain in website_domain else 1
+        
+        features['domain_mismatch'] = domain_mismatch(email, website)
+        
+        # Company name patterns
+        def is_generic_company(name):
+            if not name:
+                return 1
+            generic_patterns = ['consulting', 'services', 'solutions', 'technologies', 'pvt ltd', 'llp']
+            name_lower = name.lower()
+            return 1 if any(pattern in name_lower for pattern in generic_patterns) else 0
+        
+        features['is_generic_company'] = is_generic_company(company_name)
+        
+        # Title patterns
+        def is_generic_title(title):
+            if not title:
+                return 1
+            generic_patterns = ['intern', 'trainee', 'fresher', 'entry level', 'junior']
+            title_lower = title.lower()
+            return 1 if any(pattern in title_lower for pattern in generic_patterns) else 0
+        
+        features['is_generic_title'] = is_generic_title(title)
+        
+        return features, clean_description
+
+    def calculate_suspicious_score(self, features):
+        """Calculate suspicious score based on features"""
+        score = 0
+        
+        # Email related scoring
+        if features['is_free_email'] == 1:
+            score += 2
+        if features['domain_mismatch'] == 1:
+            score += 2
+        
+        # Website related scoring
+        if features['has_website'] == 0:
+            score += 2
+        
+        # Content related scoring
+        if features['suspicious_keyword_count'] > 3:
+            score += 3
+        elif features['suspicious_keyword_count'] > 1:
+            score += 2
+        
+        if features['professional_keyword_count'] == 0:
+            score += 1
+        
+        # Company and title patterns
+        if features['is_generic_company'] == 1:
+            score += 1
+        if features['is_generic_title'] == 1:
+            score += 1
+        
+        # Length based scoring
+        if features['description_length'] < 100:
+            score += 2
+        elif features['description_length'] < 200:
+            score += 1
+        
+        return min(score, 10)  # Cap at 10
+
+    def predict_record(self, company_name, title, description, email, website):
+        """Predict if a record is fake or real"""
+        # Extract features
+        features, clean_description = self.extract_features(company_name, title, description, email, website)
+        
+        # Check MCA database
+        mca_status = "Not Registered in MCA"
+        if any(company.lower() in company_name.lower() for company in self.mca_companies):
+            mca_status = "Registered in MCA"
+        
+        # Check scam database
+        scam_status = "Not in Scam Database"
+        if any(scam.lower() in company_name.lower() for scam in self.scam_companies):
+            scam_status = "Found in Scam Database"
+        
+        # Calculate suspicious score
+        suspicious_score = self.calculate_suspicious_score(features)
+        
+        # ML prediction (if models are loaded)
+        ml_prediction = {"prediction": "REAL", "probability": 0.5}
+        if self.tfidf_vectorizer and self.scaler and self.logistic_model and self.rf_model:
+            try:
+                # Create feature array
+                feature_array = np.array([[
+                    features['suspicious_keyword_count'],
+                    features['professional_keyword_count'],
+                    features['description_length'],
+                    features['title_length'],
+                    features['company_name_length'],
+                    features['is_free_email'],
+                    features['has_website'],
+                    features['domain_mismatch'],
+                    features['is_generic_company'],
+                    features['is_generic_title']
+                ]])
+                
+                # Scale numerical features
+                numerical_features = self.scaler.transform(feature_array)
+                
+                # Create TF-IDF features
+                text_features = self.tfidf_vectorizer.transform([clean_description])
+                
+                # Combine features
+                X = hstack([numerical_features, text_features])
+                
+                # Make predictions
+                lr_pred = self.logistic_model.predict(X)[0]
+                lr_prob = self.logistic_model.predict_proba(X)[0][1]
+                
+                rf_pred = self.rf_model.predict(X)[0]
+                rf_prob = self.rf_model.predict_proba(X)[0][1]
+                
+                # Ensemble prediction
+                ensemble_prob = (lr_prob + rf_prob) / 2
+                ensemble_pred = 1 if ensemble_prob > 0.5 else 0
+                
+                ml_prediction = {
+                    "prediction": "FAKE" if ensemble_pred == 1 else "REAL",
+                    "probability": ensemble_prob
+                }
+            except Exception as e:
+                print(f"ML prediction error: {e}")
+                # Fall back to rule-based prediction
+        
+        # Determine final prediction based on multiple factors
+        final_prediction = "REAL"
+        probability = 0.5  # Default neutral probability
+        
+        # Strong positive indicators for legitimate companies
+        if mca_status == "Registered in MCA" and suspicious_score <= 2:
+            final_prediction = "REAL"
+            probability = 0.9
+        elif mca_status == "Registered in MCA" and suspicious_score <= 4:
+            final_prediction = "REAL"
+            probability = 0.8
+        elif mca_status == "Registered in MCA":
+            final_prediction = "REAL"
+            probability = 0.7
+        
+        # If found in scam database, mark as fake
+        if scam_status == "Found in Scam Database":
+            final_prediction = "FAKE"
+            probability = 0.95
+        # If high suspicious score, mark as fake
+        elif suspicious_score >= 7:
+            final_prediction = "FAKE"
+            probability = 0.85
+        elif suspicious_score >= 5:
+            final_prediction = "FAKE"
+            probability = 0.65
+        # Use ML prediction if available and overrides default
+        elif ml_prediction["probability"] > 0.7:
+            final_prediction = ml_prediction["prediction"]
+            probability = ml_prediction["probability"]
+        elif ml_prediction["probability"] > 0.5:
+            final_prediction = ml_prediction["prediction"]
+            probability = max(ml_prediction["probability"], probability)  # Use higher of ML or rule-based
+        
+        # Determine risk level (consider both confidence and suspicious score)
+        if suspicious_score >= 7:
+            risk_level = "High"
+        elif probability >= 0.8:
+            risk_level = "Low"
+        elif probability >= 0.5:
+            risk_level = "Medium"
+        else:
+            risk_level = "High"
+        
+        return {
+            "prediction": final_prediction,
+            "probability": probability,
+            "risk_level": risk_level,
+            "verification_status": mca_status,
+            "scam_status": scam_status,
+            "suspicious_score": suspicious_score,
+            "features": features
+        }
+
+# Initialize detector
+    detector = JobFraudDetector()
+
+# Database connection (File-based fallback)
+import json
+import os
+
+USERS_FILE = 'users.json'
+PREDICTIONS_FILE = 'predictions.json'
+
+# Load users from file
+def load_users():
+    try:
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, 'r') as f:
+                content = f.read()
+                if content.strip():
+                    return json.loads(content)
+        return []
+    except Exception as e:
+        print(f"Error loading users: {e}")
+        return []
+
+# Save users to file
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=2, default=str)
+
+# Load predictions from file
+def load_predictions():
+    try:
+        if os.path.exists(PREDICTIONS_FILE):
+            with open(PREDICTIONS_FILE, 'r') as f:
+                content = f.read()
+                if content.strip():
+                    return json.loads(content)
+        return []
+    except Exception as e:
+        print(f"Error loading predictions: {e}")
+        return []
+
+# Save predictions to file
+def save_predictions(predictions):
+    with open(PREDICTIONS_FILE, 'w') as f:
+        json.dump(predictions, f, indent=2, default=str)
+
+# Initialize file-based storage
+users_collection = load_users()
+predictions_collection = load_predictions()
+
+print(f"Using file-based storage. Loaded {len(users_collection)} users")
+
+def load_visitors():
+    """Load visitor count from file"""
+    try:
+        with open('visitors.json', 'r') as f:
+            data = json.load(f)
+            return data.get('count', 0)
+    except:
+        return 0
+
+def save_visitors(count):
+    """Save visitor count to file"""
+    try:
+        with open('visitors.json', 'w') as f:
+            json.dump({'count': count, 'last_updated': str(datetime.now())}, f, indent=2)
+    except:
+        pass
+
+@app.route('/')
+def home():
+    return jsonify({"message": "SAFE HIRE API is running!"})
+
+@app.route('/api/visitors', methods=['GET', 'POST'])
+def visitors():
+    """Get or increment visitor count"""
+    try:
+        count = load_visitors()
+        if request.method == 'POST':
+            # Increment the count
+            count += 1
+            save_visitors(count)
+        return jsonify({"visitor_count": count})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    """Predict if a job/company is fake or real"""
+    data = request.get_json()
+    
+    # Validate input
+    required_fields = ['company_name', 'title', 'description', 'email', 'website']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+    
+    # Make prediction
+    result = detector.predict_record(
+        data['company_name'],
+        data['title'],
+        data['description'],
+        data['email'],
+        data['website']
+    )
+    
+    # Store prediction in database
+    prediction_data = {
+        'company_name': data['company_name'],
+        'title': data['title'],
+        'description': data['description'],
+        'email': data['email'],
+        'website': data['website'],
+        'prediction': result['prediction'],
+        'probability': result['probability'],
+        'risk_level': result['risk_level'],
+        'verification_status': result['verification_status'],
+        'scam_status': result['scam_status'],
+        'suspicious_score': result['suspicious_score'],
+        'timestamp': datetime.now()
+    }
+    
+    try:
+        predictions_collection.append(prediction_data)
+        save_predictions(predictions_collection)
+    except Exception as e:
+        print(f"Database error: {e}")
+    
+    return jsonify(result)
+
+@app.route('/debug/users', methods=['GET'])
+@jwt_required()
+def debug_users():
+    """Debug endpoint to see all users (admin only, never exposes password hashes)"""
+    if get_jwt().get('role') != 'admin':
+        return jsonify({"error": "Admin access required"}), 403
+    try:
+        safe_users = [
+            {"name": u.get('name'), "email": u.get('email'), "role": resolve_role(u), "created_at": u.get('created_at')}
+            for u in users_collection
+        ]
+        return jsonify({"users": safe_users})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/auth/register', methods=['POST'])
+def register():
+    """User registration"""
+    data = request.get_json()
+    
+    # Validate input
+    required_fields = ['name', 'email', 'password']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+    
+    # Check if user already exists
+    existing_user = next((user for user in users_collection if user['email'] == data['email']), None)
+    
+    if existing_user:
+        return jsonify({"error": "User already exists"}), 400
+    
+    # Hash password
+    hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+    
+    # Create user
+    user_data = {
+        'name': data['name'],
+        'email': data['email'],
+        'password': hashed_password.decode('utf-8'),
+        'role': 'admin' if data['email'].lower() in ADMIN_EMAILS else 'user',
+        'created_at': datetime.now()
+    }
+    
+    try:
+        users_collection.append(user_data)
+        save_users(users_collection)
+    except Exception as e:
+        print(f"Database error: {e}")
+    
+    return jsonify({"message": "User registered successfully"})
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """User login"""
+    data = request.get_json()
+    
+    # Validate input
+    required_fields = ['email', 'password']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+    
+    # Find user
+    user = next((user for user in users_collection if user['email'] == data['email']), None)
+    
+    if not user:
+        print(f"User not found: {data['email']}")
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Check password
+    try:
+        stored_password = user['password'].encode('utf-8')
+        provided_password = data['password'].encode('utf-8')
+        print(f"Checking password for user: {data['email']}")
+        print(f"Stored password type: {type(stored_password)}")
+        print(f"Provided password type: {type(provided_password)}")
+        
+        if not bcrypt.checkpw(provided_password, stored_password):
+            print("Password check failed")
+            return jsonify({"error": "Invalid credentials"}), 401
+        
+        print("Password check successful")
+    except Exception as e:
+        print(f"Password comparison error: {e}")
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Create access token, embedding the role as a claim so it can't be
+    # changed client-side and every protected route can check it
+    role = resolve_role(user)
+    access_token = create_access_token(
+        identity=user['email'],
+        additional_claims={'role': role}
+    )
+
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "name": user['name'],
+            "email": user['email'],
+            "role": role
+        }
+    })
+
+@app.route('/auth/me', methods=['GET'])
+@jwt_required()
+def me():
+    """Validate the current token and return the real user record.
+    Used by the frontend on page load instead of trusting local storage."""
+    email = get_jwt_identity()
+    user = next((u for u in users_collection if u['email'] == email), None)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({
+        "name": user['name'],
+        "email": user['email'],
+        "role": resolve_role(user)
+    })
+
+@app.route('/admin/analytics', methods=['GET'])
+@jwt_required()
+def analytics():
+    """Get analytics data for admin dashboard"""
+    if get_jwt().get('role') != 'admin':
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        # Get all predictions
+        all_predictions = predictions_collection
+        
+        # Calculate statistics
+        total_predictions = len(all_predictions)
+        fake_predictions = len([p for p in all_predictions if p['prediction'] == 'FAKE'])
+        real_predictions = total_predictions - fake_predictions
+        
+        # Risk level distribution
+        high_risk = len([p for p in all_predictions if p['risk_level'] == 'High'])
+        medium_risk = len([p for p in all_predictions if p['risk_level'] == 'Medium'])
+        low_risk = len([p for p in all_predictions if p['risk_level'] == 'Low'])
+        
+        # Recent predictions
+        recent_predictions = []
+        if all_predictions:
+            try:
+                recent_predictions = sorted(all_predictions, key=lambda x: str(x.get('timestamp', '')), reverse=True)[:10]
+            except:
+                recent_predictions = all_predictions[:10]
+        
+        return jsonify({
+            "total_predictions": total_predictions,
+            "fake_predictions": fake_predictions,
+            "real_predictions": real_predictions,
+            "fake_percentage": round((fake_predictions / total_predictions) * 100, 2) if total_predictions > 0 else 0,
+            "risk_distribution": {
+                "high": high_risk,
+                "medium": medium_risk,
+                "low": low_risk
+            },
+            "recent_predictions": recent_predictions
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5050)

@@ -1,0 +1,41 @@
+# Node
+node_modules/
+node18/
+npm-debug.log
+.npm
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.Python
+venv/
+env/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Data files (user data, not code)
+users.json
+predictions.json
+visitors.json
+
+# Large datasets
+tamil_nadu_companies.csv
+datasets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+Thumbs.db
+.DS_Store
