@@ -3,6 +3,7 @@ import { AuthResponse, getMe, getVisitorCount } from './services/api';
 import AuthForm from './components/AuthForm';
 import VerificationForm from './components/VerificationForm';
 import AdminDashboard from './components/AdminDashboard';
+import shieldLogo from './assets/safe-hire-shield.png';
 
 function App() {
   const [user, setUser] = useState<AuthResponse | null>(null);
@@ -79,8 +80,8 @@ function App() {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-lg shadow-cyan-500/20 flex items-center justify-center">
-                <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center">
-                  <span className="text-xl">🛡️</span>
+                <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center p-1">
+                  <img src={shieldLogo} alt="SAFE HIRE" className="w-full h-full object-contain" />
                 </div>
               </div>
               <div className="flex items-center space-x-2">

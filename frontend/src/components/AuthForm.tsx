@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { registerUser, loginUser, RegisterRequest, LoginRequest, AuthResponse, describeApiError } from '../services/api';
 import bgImage from '../assets/safe-hire-bg.png';
+import shieldLogo from '../assets/safe-hire-shield.png';
 
 interface AuthFormProps {
   onAuthSuccess: (userData: AuthResponse) => void;
@@ -64,9 +65,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         <div className="backdrop-blur-2xl bg-slate-900/90 border border-slate-700/60 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-cyan-950/30">
           {/* Logo & Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-xl shadow-cyan-500/20 mb-4 items-center justify-center">
-              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-2xl">
-                🛡️
+            <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-xl shadow-cyan-500/20 mb-4 items-center justify-center">
+              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center p-2">
+                <img src={shieldLogo} alt="SAFE HIRE" className="w-full h-full object-contain" />
               </div>
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white">
