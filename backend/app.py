@@ -19,7 +19,7 @@ import nltk
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager,
@@ -580,8 +580,17 @@ predictions_collection = load_json_safe(PREDICTIONS_FILE, [])
 # API ROUTES
 # ============================================================================
 
-@app.route('/')
-def home():
+# Frontend build directory
+FRONTEND_BUILD_DIR = os.path.join(BASE_DIR, '..', 'frontend', 'build')
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """Serve React frontend or fallback to index.html / API status"""
+    if path != "" and os.path.exists(os.path.join(FRONTEND_BUILD_DIR, path)):
+        return send_from_directory(FRONTEND_BUILD_DIR, path)
+    if os.path.exists(os.path.join(FRONTEND_BUILD_DIR, 'index.html')):
+        return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')
     return jsonify({
         "message": "SAFE HIRE API is running!",
         "version": "2.1.0",
