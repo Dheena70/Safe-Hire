@@ -35,6 +35,7 @@ from sklearn.preprocessing import StandardScaler
 
 # Base directory paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend', 'build'))
 MODELS_DIR = os.path.join(BASE_DIR, '..', 'ml_models')
 DATASETS_DIR = os.path.join(BASE_DIR, '..', 'datasets')
 USERS_FILE = os.path.join(BASE_DIR, 'users.json')
@@ -44,7 +45,11 @@ VISITORS_FILE = os.path.join(BASE_DIR, 'visitors.json')
 # Load environment variables
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder=FRONTEND_BUILD_DIR,
+    static_url_path=''
+)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'safe-hire-production-auto-secure-jwt-key-2026-dheena')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 jwt = JWTManager(app)
