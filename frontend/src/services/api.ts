@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5050';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,10 +10,7 @@ const api = axios.create({
   },
 });
 
-// Turns an axios error into a message worth showing a user. A request that
-// never reached the server (backend down, wrong port, CORS, timeout) has no
-// `response` at all — that case is worth telling apart from a real 4xx/5xx
-// coming back from the API.
+// Turns an axios error into a user-friendly message
 export const describeApiError = (err: any): string => {
   if (err?.response?.data?.error) {
     return err.response.data.error;
@@ -22,7 +19,7 @@ export const describeApiError = (err: any): string => {
     return 'The server took too long to respond. Is the backend running?';
   }
   if (err?.request) {
-    return `Could not reach the server at ${API_BASE_URL}. Make sure the backend is running.`;
+    return `Could not reach the server at ${API_BASE_URL}. Make sure the backend is running on port 5050.`;
   }
   return 'An unexpected error occurred.';
 };
@@ -32,17 +29,22 @@ export interface PredictionRequest {
   company_name: string;
   title: string;
   description: string;
-  email: string;
-  website: string;
+  email?: string;
+  website?: string;
+  cin?: string;
 }
 
 export interface PredictionResponse {
   prediction: 'REAL' | 'FAKE';
-  probability: number;
+  probability: number; // Confidence in legitimacy (0.0 to 1.0)
   risk_level: 'Low' | 'Medium' | 'High';
   verification_status: string;
   scam_status: string;
   suspicious_score: number;
+  tamil_nadu_registered?: boolean | string;
+  cin_verified?: boolean | string;
+  registered_company_name?: string | null;
+  reasons?: string[];
   features?: any;
 }
 
@@ -66,6 +68,22 @@ export interface AuthResponse {
   };
 }
 
+export interface RecentPrediction {
+  id: number;
+  company_name: string;
+  title: string;
+  email?: string;
+  website?: string;
+  cin?: string;
+  prediction: 'REAL' | 'FAKE';
+  probability: number;
+  risk_level: 'Low' | 'Medium' | 'High';
+  verification_status: string;
+  scam_status: string;
+  cin_verified?: boolean | string;
+  timestamp: string;
+}
+
 export interface AnalyticsData {
   total_predictions: number;
   fake_predictions: number;
@@ -76,7 +94,11 @@ export interface AnalyticsData {
     medium: number;
     low: number;
   };
-  recent_predictions: any[];
+  predictions_summary?: {
+    REAL: number;
+    FAKE: number;
+  };
+  recent_predictions: RecentPrediction[];
 }
 
 // API Functions

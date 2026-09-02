@@ -19,10 +19,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,9 +36,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
       } else {
         const registerData = formData as RegisterRequest;
         await registerUser(registerData);
-        // After successful registration, switch to login
         setIsLogin(true);
-        setNotice('Registration successful! Please sign in.');
+        setNotice('Registration successful! Please sign in with your credentials.');
       }
     } catch (err: any) {
       setError(describeApiError(err));
@@ -50,122 +46,166 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     }
   };
 
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setError(null);
-    setNotice(null);
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-    });
-  };
-
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-cover bg-center px-4"
-      style={{ backgroundImage: `url(${bgImage})` }}
-    >
-      <div className="w-full max-w-md rounded-2xl bg-slate-900/40 p-6 backdrop-blur-sm sm:p-10">
-        <div className="w-full rounded-xl bg-white p-8 shadow-2xl">
-          <h1 className="text-center text-2xl font-extrabold tracking-wide text-slate-900">
-            SAFE HIRE
-          </h1>
-          <p className="mt-1 text-center text-sm text-slate-500">
-            {isLogin ? 'Protect yourself from fake companies and jobs' : 'Join us to verify companies'}
-          </p>
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-slate-950">
+      {/* Background Graphic & Dark Overlay */}
+      <div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-25 pointer-events-none"
+        style={{ backgroundImage: `url(${bgImage})` }}
+      />
+      <div className="fixed inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/95 to-slate-950 pointer-events-none" />
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+      {/* Ambient Neon Blobs */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Main Glass Card */}
+        <div className="backdrop-blur-2xl bg-slate-900/90 border border-slate-700/60 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-cyan-950/30">
+          {/* Logo & Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-xl shadow-cyan-500/20 mb-4 items-center justify-center">
+              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-2xl">
+                🛡️
+              </div>
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-white">
+              SAFE HIRE
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              AI-Powered Company & Recruitment Fraud Defense
+            </p>
+          </div>
+
+          {/* Mode Tabs */}
+          <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-6 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => { setIsLogin(true); setError(null); }}
+              className={`py-2 rounded-lg transition duration-200 ${
+                isLogin
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsLogin(false); setError(null); }}
+              className={`py-2 rounded-lg transition duration-200 ${
+                !isLogin
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {/* Form */}
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {!isLogin && (
               <div>
-                <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700">
+                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                   Full Name
                 </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required={!isLogin}
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                  placeholder="Enter your full name"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                    👤
+                  </div>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    required={!isLogin}
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                    placeholder="e.g., Alex Johnson"
+                  />
+                </div>
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                 Email Address
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                placeholder="Enter your email"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                  ✉️
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                  placeholder="name@example.com"
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                placeholder="Enter your password"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                  🔒
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center rounded-lg bg-slate-900 py-2.5 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg className="-ml-1 mr-3 h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                isLogin ? 'Login' : 'Sign Up'
-              )}
-            </button>
-
             {notice && (
-              <div className="rounded-lg bg-green-100 p-3 text-sm text-green-700">
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-300">
                 {notice}
               </div>
             )}
 
             {error && (
-              <div className="rounded-lg bg-red-100 p-3 text-sm text-red-700">
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-300">
                 {error}
               </div>
             )}
 
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={toggleMode}
-                className="text-sm font-medium text-slate-600 hover:text-slate-900"
-              >
-                {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl transition duration-300 shadow-lg shadow-cyan-500/20 flex items-center justify-center text-sm tracking-wide mt-2"
+            >
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                isLogin ? 'Sign In to Portal' : 'Create Free Account'
+              )}
+            </button>
           </form>
+
+          {/* Security Features Footnote */}
+          <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+            <p className="text-[11px] text-slate-500 flex items-center justify-center space-x-1">
+              <span>🔒 256-Bit Encrypted Session</span>
+              <span>•</span>
+              <span>MCA Verified</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>

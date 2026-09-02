@@ -7,49 +7,70 @@ os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
-import pandas as pd
-import numpy as np
-import joblib
 import re
+import json
+import threading
+import tempfile
+from datetime import datetime, timedelta
+
+import bcrypt
+import joblib
 import nltk
+import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    get_jwt_identity,
+    jwt_required,
+)
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from scipy.sparse import hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler
-from scipy.sparse import hstack
-import bcrypt
-import pymongo
-from datetime import datetime, timedelta
-import json
-from dotenv import load_dotenv
+
+# Base directory paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, '..', 'ml_models')
+DATASETS_DIR = os.path.join(BASE_DIR, '..', 'datasets')
+USERS_FILE = os.path.join(BASE_DIR, 'users.json')
+PREDICTIONS_FILE = os.path.join(BASE_DIR, 'predictions.json')
+VISITORS_FILE = os.path.join(BASE_DIR, 'visitors.json')
 
 # Load environment variables
-load_dotenv()
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'safe-hire-production-secret-key-change-in-env')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 jwt = JWTManager(app)
 
-# Emails allowed to hold the admin role, e.g. "owner@example.com,ops@example.com"
+# Allowed admin emails
 ADMIN_EMAILS = {
     email.strip().lower()
-    for email in os.getenv('ADMIN_EMAILS', '').split(',')
+    for email in os.getenv('ADMIN_EMAILS', 'admin@example.com').split(',')
     if email.strip()
 }
 
 def resolve_role(user):
-    """An email in ADMIN_EMAILS is always treated as admin, even if the
-    stored record predates the 'role' field or was edited by hand."""
+    """Determine role based on ADMIN_EMAILS or record"""
+    if not user:
+        return 'user'
     if user.get('email', '').lower() in ADMIN_EMAILS:
         return 'admin'
     return user.get('role', 'user')
 
-# Enable CORS
+# Enable CORS for frontend
 CORS(app)
+
+# Threading locks for data safety
+users_lock = threading.Lock()
+predictions_lock = threading.Lock()
+visitors_lock = threading.Lock()
 
 # Download NLTK data safely
 NLTK_READY = True
@@ -64,159 +85,369 @@ for resource in ['punkt', 'stopwords', 'wordnet']:
             NLTK_READY = False
 
 # ============================================================================
-# LOAD TAMIL NADU COMPANY DATABASE
+# ATOMIC JSON STORAGE HELPERS
 # ============================================================================
-TN_COMPANIES_DB = None
-TN_COMPANY_NAMES = set()
-
-def load_tamil_nadu_database():
-    """Load Tamil Nadu company registry from CSV"""
-    global TN_COMPANIES_DB, TN_COMPANY_NAMES
+def atomic_save_json(filepath, data):
+    """Thread-safe and atomic file persistence using a temp file"""
     try:
-        print("Loading Tamil Nadu company database...")
-        TN_COMPANIES_DB = pd.read_csv('tamil_nadu_companies.csv')
-        # Create a set of company names (normalized) for fast lookup
-        TN_COMPANY_NAMES = {
-            name.lower().strip() 
-            for name in TN_COMPANIES_DB['Company Name'].dropna()
-        }
-        print(f"✓ Loaded {len(TN_COMPANY_NAMES)} Tamil Nadu registered companies")
+        dir_name = os.path.dirname(filepath)
+        with tempfile.NamedTemporaryFile('w', dir=dir_name, delete=False, encoding='utf-8') as tf:
+            json.dump(data, tf, indent=2, default=str)
+            temp_name = tf.name
+        # Atomic rename/replace
+        os.replace(temp_name, filepath)
         return True
     except Exception as e:
-        print(f"WARNING: Could not load Tamil Nadu database ({type(e).__name__}). Registry checks disabled.")
+        print(f"ERROR saving {filepath}: {e}")
         return False
 
-def check_tamil_nadu_registry(company_name):
-    """Check if company is registered in Tamil Nadu registry"""
-    if not TN_COMPANY_NAMES:
-        return None  # Database not loaded
-    
-    normalized_name = company_name.lower().strip()
-    
+def load_json_safe(filepath, default_val):
+    """Safely load JSON data from disk"""
+    if not os.path.exists(filepath):
+        return default_val
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"WARNING reading {filepath}: {e}")
+        return default_val
+
+# ============================================================================
+# LOAD SCAM AND COMPANY REGISTRY DATABASES WITH CIN SUPPORT
+# ============================================================================
+SCAM_COMPANIES_DB = {}
+TN_COMPANY_NAMES = set()
+TN_CIN_MAP = {}  # CIN (uppercase) -> Company Name
+
+GENERIC_CORP_SUFFIXES = {
+    'pvt', 'ltd', 'limited', 'inc', 'incorporated', 'corp', 'corporation',
+    'llp', 'technologies', 'technology', 'solutions', 'services', 'enterprises',
+    'global', 'consulting', 'group', 'india', 'international', 'co', 'company'
+}
+
+def load_scam_database():
+    """Load known fraudulent companies database"""
+    global SCAM_COMPANIES_DB
+    scam_csv_path = os.path.join(DATASETS_DIR, 'sample_scam_companies.csv')
+    try:
+        if os.path.exists(scam_csv_path):
+            df = pd.read_csv(scam_csv_path, on_bad_lines='skip')
+            for _, row in df.iterrows():
+                name = str(row.get('company_name', '')).strip().lower()
+                if name:
+                    SCAM_COMPANIES_DB[name] = {
+                        'reason': str(row.get('reason', 'Reported fake job offers')),
+                        'category': str(row.get('category', 'Employment Scam')),
+                        'reported_date': str(row.get('reported_date', 'Unknown'))
+                    }
+            print(f"[OK] Loaded {len(SCAM_COMPANIES_DB)} known scam companies from database")
+    except Exception as e:
+        print(f"WARNING: Could not load scam database ({e})")
+
+def check_scam_database(company_name):
+    """Check if company name matches known fraudulent company listings"""
+    if not company_name or not SCAM_COMPANIES_DB:
+        return None
+
+    clean_input = company_name.lower().strip()
     # Exact match
+    if clean_input in SCAM_COMPANIES_DB:
+        return SCAM_COMPANIES_DB[clean_input]
+
+    # Clean input tokens without punctuation
+    input_tokens = set(re.findall(r'[a-z0-9]+', clean_input)) - GENERIC_CORP_SUFFIXES
+    if not input_tokens:
+        return None
+
+    for scam_name, scam_info in SCAM_COMPANIES_DB.items():
+        scam_tokens = set(re.findall(r'[a-z0-9]+', scam_name)) - GENERIC_CORP_SUFFIXES
+        if scam_tokens and scam_tokens == input_tokens:
+            return scam_info
+
+    return None
+
+def load_company_databases():
+    """Load Tamil Nadu and MCA company registries with CIN mapping"""
+    global TN_COMPANY_NAMES, TN_CIN_MAP
+    try:
+        # 1. Load sample MCA dataset for major multi-state corporate CINs
+        mca_csv_path = os.path.join(DATASETS_DIR, 'sample_mca_companies.csv')
+        if os.path.exists(mca_csv_path):
+            df_mca = pd.read_csv(mca_csv_path, on_bad_lines='skip')
+            for _, r in df_mca.iterrows():
+                cname = str(r.get('company_name', '')).strip()
+                cin = str(r.get('cin', '')).strip().upper()
+                if cname:
+                    TN_COMPANY_NAMES.add(cname.lower())
+                if cin:
+                    TN_CIN_MAP[cin] = cname
+
+        # 2. Load Tamil Nadu large registry
+        tn_csv_path = os.path.join(DATASETS_DIR, 'tamil_nadu_companies.csv')
+        if os.path.exists(tn_csv_path):
+            print(f"Loading company registry from {os.path.basename(tn_csv_path)}...")
+            df = pd.read_csv(tn_csv_path, low_memory=False, on_bad_lines='skip')
+            
+            cin_col = 'CIN' if 'CIN' in df.columns else None
+            name_col = 'Company Name' if 'Company Name' in df.columns else df.columns[0]
+
+            for _, row in df[[cin_col, name_col]].dropna(subset=[name_col]).iterrows() if cin_col else df[[name_col]].dropna().iterrows():
+                name = str(row[name_col]).strip()
+                TN_COMPANY_NAMES.add(name.lower())
+                if cin_col:
+                    cin_val = str(row[cin_col]).strip().upper()
+                    if cin_val and cin_val != 'NAN':
+                        TN_CIN_MAP[cin_val] = name
+
+            print(f"[OK] Loaded {len(TN_COMPANY_NAMES)} registered companies ({len(TN_CIN_MAP)} with CIN)")
+            return True
+        else:
+            print("WARNING: Company registry file not found.")
+            return False
+    except Exception as e:
+        print(f"WARNING: Could not load company registry ({e}). Registry checks disabled.")
+        return False
+
+def check_cin_registry(cin):
+    """Check if CIN exists in official database"""
+    if not cin:
+        return None, None
+    clean_cin = str(cin).strip().upper()
+    if clean_cin in TN_CIN_MAP:
+        return True, TN_CIN_MAP[clean_cin]
+    
+    # Check if format matches valid 21-character alphanumeric MCA pattern
+    if re.match(r'^[LUu][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$', clean_cin):
+        return 'UNVERIFIED_REGIONAL', None
+    
+    return False, None
+
+def check_tamil_nadu_registry(company_name):
+    """Check if company is verified in official registry (with false-positive protection)"""
+    if not TN_COMPANY_NAMES or not company_name:
+        return None
+
+    normalized_name = company_name.lower().strip()
+
+    # Exact full match
     if normalized_name in TN_COMPANY_NAMES:
         return True
-    
-    # Partial match (useful for similar names)
-    for registered_name in TN_COMPANY_NAMES:
-        if normalized_name in registered_name or registered_name in normalized_name:
+
+    # Token match protection - remove generic corporate suffixes
+    tokens = [t for t in re.findall(r'[a-z0-9]+', normalized_name) if t not in GENERIC_CORP_SUFFIXES]
+    if len(tokens) >= 2:
+        token_phrase = ' '.join(tokens)
+        if any(token_phrase in reg_name for reg_name in TN_COMPANY_NAMES if len(reg_name) <= len(token_phrase) + 30):
             return True
-    
+
     return False
 
-# Load database on startup
-load_tamil_nadu_database()
+# Load databases on startup
+load_scam_database()
+load_company_databases()
 
+# ============================================================================
+# FRAUD DETECTOR WITH HYBRID ML + RULE-BASED ENGINE
+# ============================================================================
 class JobFraudDetector:
-    """Detects fraudulent job listings and companies"""
+    """Combines NLP TF-IDF Ensemble Models with Domain Rule Heuristics"""
     def __init__(self):
         self.tfidf_vectorizer = None
         self.scaler = None
         self.logistic_model = None
         self.rf_model = None
         self.lemmatizer = WordNetLemmatizer()
+        try:
+            self.stop_words = set(stopwords.words('english'))
+        except Exception:
+            self.stop_words = set()
+
+        self.suspicious_keywords = [
+            'urgent', 'immediate', 'work from home', 'no experience', 'earn money',
+            'quick money', 'easy money', 'payment required', 'training fee',
+            'deposit', 'investment', 'unlimited earning', 'guaranteed job',
+            'no interview', 'immediate hiring', 'start today', 'weekly payment',
+            'daily payment', 'data entry', 'form filling', 'ad posting', 'click ads',
+            'survey', 'registration fee', 'part time job', 'earn per day', 'zero investment',
+            'processing fee', 'security deposit', 'wire transfer', 'crypto', 'gift card'
+        ]
+
+        self.professional_keywords = [
+            'software development', 'machine learning', 'data science', 'web development',
+            'mobile development', 'cloud computing', 'devops', 'cybersecurity',
+            'artificial intelligence', 'deep learning', 'backend', 'frontend',
+            'full stack', 'database', 'api development', 'testing', 'ui/ux',
+            'project management', 'business analysis', 'marketing', 'sales',
+            'human resources', 'finance', 'accounting', 'research', 'analytics',
+            'bachelor', 'master', 'degree', 'responsibilities', 'qualifications',
+            'collaborate', 'agile', 'scrum', 'architecture', 'infrastructure'
+        ]
+
         self.load_models()
 
     def load_models(self):
-        """Load pre-trained ML models from disk"""
+        """Load trained ML models from ml_models directory"""
         try:
-            self.tfidf_vectorizer = joblib.load('../ml_models/tfidf_vectorizer.joblib')
-            self.scaler = joblib.load('../ml_models/scaler.joblib')
-            self.logistic_model = joblib.load('../ml_models/logistic_model.joblib')
-            self.rf_model = joblib.load('../ml_models/random_forest_model.joblib')
-            print("✓ Models loaded successfully!")
+            tfidf_path = os.path.join(MODELS_DIR, 'tfidf_vectorizer.joblib')
+            scaler_path = os.path.join(MODELS_DIR, 'scaler.joblib')
+            if not os.path.exists(scaler_path):
+                scaler_path = os.path.join(MODELS_DIR, 'meta_scaler.joblib')
+
+            lr_path = os.path.join(MODELS_DIR, 'logistic_model.joblib')
+            rf_path = os.path.join(MODELS_DIR, 'rf_model.joblib')
+            if not os.path.exists(rf_path):
+                rf_path = os.path.join(MODELS_DIR, 'random_forest_model.joblib')
+
+            if os.path.exists(tfidf_path) and os.path.exists(lr_path) and os.path.exists(rf_path):
+                self.tfidf_vectorizer = joblib.load(tfidf_path)
+                self.scaler = joblib.load(scaler_path)
+                self.logistic_model = joblib.load(lr_path)
+                self.rf_model = joblib.load(rf_path)
+                print("[OK] ML models (TF-IDF, Scaler, Logistic Regression, Random Forest) loaded successfully!")
+            else:
+                print("INFO: ML model files not yet trained. Run python train_models.py to enable ML scoring.")
         except Exception as e:
-            print(f"WARNING: Could not load ML models ({type(e).__name__}). Using rule-based detection only.")
-            self.tfidf_vectorizer = None
-            self.scaler = None
-            self.logistic_model = None
-            self.rf_model = None
+            print(f"WARNING: Could not load ML models ({type(e).__name__}: {e}). Using heuristic mode.")
 
     def preprocess_text(self, text):
-        """Basic text preprocessing"""
+        """Clean and normalize textual content"""
         if not text or not isinstance(text, str):
             return ""
         text = text.lower()
-        text = re.sub(r'[^a-z0-9\s]', '', text)
-        tokens = text.split()
-        
-        # Only use stopwords if NLTK data is available
-        if NLTK_READY:
-            try:
-                stop_words = set(stopwords.words('english'))
-                tokens = [t for t in tokens if t not in stop_words]
-                tokens = [self.lemmatizer.lemmatize(t) for t in tokens]
-            except:
-                pass
-        
-        return ' '.join(tokens)
+        text = re.sub(r'[^a-zA-Z\s]', ' ', text)
+        words = text.split()
+        if self.stop_words:
+            words = [self.lemmatizer.lemmatize(w) for w in words if w not in self.stop_words]
+        else:
+            words = [self.lemmatizer.lemmatize(w) for w in words]
+        return ' '.join(words)
 
-    def extract_features(self, company_name, title, description, email, website):
-        """Extract features for ML models"""
+    def extract_features(self, company_name, title, description, email='', website=''):
+        """Extract structured features for heuristic and ML scoring (email & website are optional)"""
         features = {}
-        
-        def is_free_email(email_addr):
-            """Check if email uses free provider (Gmail, Yahoo, etc)"""
-            free_domains = {'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'aol.com'}
-            if '@' in email_addr:
-                domain = email_addr.split('@')[1].lower()
-                return domain in free_domains
-            return False
 
-        def domain_mismatch(email_addr, website_url):
-            """Check if email domain matches website domain"""
-            if '@' not in email_addr or not website_url:
-                return True
-            email_domain = email_addr.split('@')[1].lower()
-            website_domain = website_url.replace('https://', '').replace('http://', '').split('/')[0].lower()
-            return email_domain not in website_domain and website_domain not in email_domain
+        clean_desc = self.preprocess_text(description)
+        clean_title = self.preprocess_text(title)
+        clean_company = self.preprocess_text(company_name)
 
-        def is_generic_company(name):
-            """Check if company name is too generic"""
-            generic = {'global', 'hub', 'center', 'solutions', 'services', 'group', 'limited', 'inc', 'pvt'}
-            name_lower = name.lower().split()
-            return len(name_lower) <= 2 and any(g in name_lower for g in generic)
+        # Keyword counts
+        features['suspicious_keyword_count'] = sum(1 for kw in self.suspicious_keywords if kw in clean_desc)
+        features['professional_keyword_count'] = sum(1 for kw in self.professional_keywords if kw in clean_desc)
 
-        def is_generic_title(title_text):
-            """Check if job title is too generic"""
-            generic_titles = {'data entry', 'work from home', 'easy job', 'earn money', 'make money'}
-            return any(t in title_text.lower() for t in generic_titles)
+        # Text lengths
+        features['description_length'] = len(str(description or ''))
+        features['title_length'] = len(str(title or ''))
+        features['company_name_length'] = len(str(company_name or ''))
 
-        # Extract features
-        features['free_email'] = 1 if is_free_email(email) else 0
-        features['domain_mismatch'] = 1 if domain_mismatch(email, website) else 0
-        features['generic_company'] = 1 if is_generic_company(company_name) else 0
-        features['generic_title'] = 1 if is_generic_title(title) else 0
-        features['no_website'] = 1 if not website else 0
-        
-        # Tamil Nadu registry check
-        features['not_in_tn_registry'] = 0 if check_tamil_nadu_registry(company_name) else 1
-        
-        return features
+        # Free email provider check (Only evaluated if email is provided)
+        free_domains = {'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'rediff.com', 'aol.com', 'mail.com'}
+        email_str = str(email or '').strip().lower()
+        if email_str and '@' in email_str:
+            domain = email_str.split('@')[-1]
+            features['is_free_email'] = 1 if domain in free_domains else 0
+            features['email_provided'] = 1
+        else:
+            features['is_free_email'] = 0  # Neutral when omitted
+            features['email_provided'] = 0
 
-    def calculate_suspicious_score(self, features):
-        """Calculate rule-based suspicious score (0-10)"""
-        scam_keywords = [
-            'urgent', 'immediately', 'fast', 'easy', 'money', 'cash',
-            'registration', 'fee', 'certificate', 'paid', 'profit',
-            'guarantee', 'work from home', 'no experience', 'high salary'
-        ]
+        # Website check
+        web_str = str(website or '').strip().lower()
+        has_web = 1 if web_str and web_str not in {'none', 'null', 'n/a', ''} else 0
+        features['has_website'] = has_web
+
+        # Domain mismatch check (Only evaluated if BOTH email and website are provided)
+        if features['email_provided'] and has_web:
+            email_domain = email_str.split('@')[-1].strip()
+            clean_web = web_str.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].strip()
+            features['domain_mismatch'] = 0 if (email_domain in clean_web or clean_web in email_domain) else 1
+        else:
+            features['domain_mismatch'] = 0  # Neutral when omitted
+
+        # Generic company check
+        generic_patterns = {'consulting', 'services', 'solutions', 'technologies', 'global', 'hub', 'centre', 'enterprises'}
+        words = set(clean_company.split())
+        features['is_generic_company'] = 1 if len(words) <= 2 and any(w in generic_patterns for w in words) else 0
+
+        # Generic title check
+        suspicious_titles = {'data entry', 'work from home', 'easy job', 'earn money', 'form filling', 'ad posting', 'survey'}
+        t_lower = str(title or '').lower()
+        features['is_generic_title'] = 1 if any(st in t_lower for st in suspicious_titles) else 0
+
+        return features, f"{clean_title} {clean_company} {clean_desc}"
+
+    def calculate_heuristic_score(self, features, scam_match, is_registered, cin_status, cin_registered_name, company_name):
+        """Calculate rule-based suspicion score (0-10) and diagnostic reasons"""
         score = 0
-        
-        # Rule-based scoring
-        score += features.get('free_email', 0) * 2
-        score += features.get('domain_mismatch', 0) * 3
-        score += features.get('generic_company', 0) * 2
-        score += features.get('generic_title', 0) * 2
-        score += features.get('no_website', 0) * 3
-        score += features.get('not_in_tn_registry', 0) * 2  # Not in TN registry = suspicious
-        
-        return min(score, 10)
+        reasons = []
 
-    def predict_record(self, company_name, title, description, email, website):
-        """Main prediction method - returns confidence in legitimacy"""
-        # Basic validation
-        if not all([company_name, title, description, email]):
+        # 1. Scam database cross-check
+        if scam_match:
+            score += 8
+            reasons.append(f"Company matches known fraudulent records: {scam_match['reason']}")
+
+        # 2. CIN (Corporate Identification Number) verification
+        if cin_status is True:
+            # Check name consistency
+            c_clean = company_name.lower().strip()
+            r_clean = (cin_registered_name or '').lower().strip()
+            c_tokens = set(re.findall(r'[a-z0-9]+', c_clean)) - GENERIC_CORP_SUFFIXES
+            r_tokens = set(re.findall(r'[a-z0-9]+', r_clean)) - GENERIC_CORP_SUFFIXES
+
+            if c_tokens and r_tokens and (c_tokens.issubset(r_tokens) or r_tokens.issubset(c_tokens) or len(c_tokens & r_tokens) >= 1):
+                score = max(0, score - 3)
+                reasons.append(f"Official MCA Corporate Identification Number (CIN) verified for '{cin_registered_name}'")
+            else:
+                score += 1
+                reasons.append(f"CIN is officially registered to '{cin_registered_name}' (verify company name consistency)")
+        elif cin_status == 'UNVERIFIED_REGIONAL':
+            reasons.append("Valid 21-character CIN format provided, but not found in regional registry")
+        elif cin_status is False:
+            reasons.append("Provided CIN does not match standard 21-character MCA CIN format")
+
+        # 3. Email diagnostics (if provided)
+        if features.get('email_provided'):
+            if features['is_free_email']:
+                score += 2
+                reasons.append("Contact email uses a free/public email provider (e.g. Gmail/Yahoo) instead of corporate domain")
+            elif not features['domain_mismatch'] and features['has_website']:
+                score = max(0, score - 1)
+                reasons.append("Email domain successfully matches official company website domain")
+            
+            if features['domain_mismatch']:
+                score += 2
+                reasons.append("Email domain does not match company website domain")
+        else:
+            reasons.append("Contact email not provided (email domain checks skipped)")
+
+        # 4. Website diagnostics (if provided)
+        if not features['has_website']:
+            reasons.append("Company website not provided (online presence checks skipped)")
+
+        # 5. Generic job title
+        if features['is_generic_title']:
+            score += 2
+            reasons.append("Job title matches high-risk generic pattern (e.g. Data Entry, Work From Home)")
+
+        # 6. Keyword NLP signals
+        if features['suspicious_keyword_count'] >= 2:
+            score += min(features['suspicious_keyword_count'], 3)
+            reasons.append(f"Job description contains {features['suspicious_keyword_count']} high-risk keywords (urgent, deposit, cash, etc.)")
+
+        # 7. Regional registry check (if CIN was not verified)
+        if not cin_status:
+            if is_registered is False:
+                score += 1
+                reasons.append("Company not found in official regional registry")
+            elif is_registered is True:
+                score = max(0, score - 2)
+                reasons.append("Verified company in official regional registry")
+
+        return min(score, 10), reasons
+
+    def predict_record(self, company_name, title, description, email='', website='', cin=''):
+        """Main hybrid verification engine combining ML ensemble with heuristics"""
+        # Input validation: Only company_name, title, description are strictly required!
+        if not all([company_name, title, description]):
             return {
                 'prediction': 'FAKE',
                 'probability': 0.0,
@@ -224,117 +455,126 @@ class JobFraudDetector:
                 'suspicious_score': 10,
                 'verification_status': 'REJECTED',
                 'scam_status': 'Missing required fields',
-                'tamil_nadu_registered': False
+                'tamil_nadu_registered': False,
+                'cin_verified': 'Not Provided',
+                'registered_company_name': None,
+                'reasons': ['Missing required company name, job title, or description']
             }
 
         try:
-            # Extract features
-            features = self.extract_features(company_name, title, description, email, website)
-            suspicious_score = self.calculate_suspicious_score(features)
+            # 1. Database cross-referencing
+            scam_match = check_scam_database(company_name)
             is_registered = check_tamil_nadu_registry(company_name)
+            cin_status, cin_registered_name = check_cin_registry(cin) if cin else (None, None)
 
-            # Calculate confidence as inverse of suspicious score
-            # 0/10 suspicious = 100% confidence, 10/10 = 0% confidence
-            confidence_in_legitimate = (10 - suspicious_score) / 10.0
-            
-            # Determine prediction based on suspicious score
-            if suspicious_score >= 5:
-                return {
-                    'prediction': 'FAKE',
-                    'probability': confidence_in_legitimate,
-                    'risk_level': 'High' if suspicious_score >= 7 else 'Medium',
-                    'suspicious_score': suspicious_score,
-                    'verification_status': 'REJECTED',
-                    'scam_status': 'High risk indicators',
-                    'tamil_nadu_registered': is_registered if is_registered is not None else 'Unknown'
-                }
+            # 2. Extract features (handles optional email & website)
+            features, combined_text = self.extract_features(company_name, title, description, email, website)
+            heuristic_score, reasons = self.calculate_heuristic_score(
+                features, scam_match, is_registered, cin_status, cin_registered_name, company_name
+            )
+
+            # 3. ML Model Inference (if models available)
+            ml_fake_prob = None
+            if self.tfidf_vectorizer and self.scaler and self.logistic_model and self.rf_model:
+                try:
+                    # Align with trained model features
+                    model_feat = {
+                        'suspicious_keyword_count': features['suspicious_keyword_count'],
+                        'professional_keyword_count': features['professional_keyword_count'],
+                        'description_length': features['description_length'],
+                        'title_length': features['title_length'],
+                        'company_name_length': features['company_name_length'],
+                        'is_free_email': features['is_free_email'],
+                        'has_website': features['has_website'],
+                        'domain_mismatch': features['domain_mismatch'],
+                        'is_generic_company': features['is_generic_company'],
+                        'is_generic_title': features['is_generic_title']
+                    }
+                    feat_df = pd.DataFrame([model_feat])
+                    text_vec = self.tfidf_vectorizer.transform([combined_text])
+                    scaled_num = self.scaler.transform(feat_df)
+                    X_input = hstack([scaled_num, text_vec])
+
+                    lr_prob = float(self.logistic_model.predict_proba(X_input)[0][1])
+                    rf_prob = float(self.rf_model.predict_proba(X_input)[0][1])
+                    ml_fake_prob = (lr_prob * 0.4 + rf_prob * 0.6)
+                except Exception as ml_err:
+                    print(f"ML inference error: {ml_err}")
+                    ml_fake_prob = None
+
+            # 4. Hybrid probability calculation
+            if ml_fake_prob is not None:
+                heuristic_fake_prob = heuristic_score / 10.0
+                combined_fake_prob = (0.55 * ml_fake_prob) + (0.45 * heuristic_fake_prob)
             else:
-                return {
-                    'prediction': 'REAL',
-                    'probability': confidence_in_legitimate,
-                    'risk_level': 'Low',
-                    'suspicious_score': suspicious_score,
-                    'verification_status': 'APPROVED',
-                    'scam_status': 'No known issues',
-                    'tamil_nadu_registered': is_registered if is_registered is not None else 'Unknown'
-                }
+                combined_fake_prob = heuristic_score / 10.0
+
+            # Override for verified CIN
+            if cin_status is True and not scam_match:
+                combined_fake_prob = min(combined_fake_prob, 0.20)
+
+            # Override for direct scam database matches
+            if scam_match:
+                combined_fake_prob = max(combined_fake_prob, 0.95)
+
+            # Legitimate confidence (0.0 to 1.0)
+            confidence_legitimate = round(max(0.0, min(1.0, 1.0 - combined_fake_prob)), 4)
+
+            # Final classification
+            is_fake = combined_fake_prob >= 0.50
+
+            if combined_fake_prob >= 0.65:
+                risk_level = 'High'
+            elif combined_fake_prob >= 0.35:
+                risk_level = 'Medium'
+            else:
+                risk_level = 'Low'
+
+            prediction = 'FAKE' if is_fake else 'REAL'
+            verification_status = 'REJECTED' if is_fake else ('APPROVED' if risk_level == 'Low' else 'MANUAL_REVIEW')
+            scam_status = f"FLAGGED: {scam_match['reason']}" if scam_match else "No match in known scam database"
+
+            cin_display = True if cin_status is True else (
+                'Unverified (Not in Regional Records)' if cin_status == 'UNVERIFIED_REGIONAL' else (
+                    'Invalid Format' if cin_status is False else 'Not Provided'
+                )
+            )
+
+            return {
+                'prediction': prediction,
+                'probability': confidence_legitimate,
+                'risk_level': risk_level,
+                'suspicious_score': heuristic_score,
+                'verification_status': verification_status,
+                'scam_status': scam_status,
+                'tamil_nadu_registered': is_registered if is_registered is not None else 'Unknown',
+                'cin_verified': cin_display,
+                'registered_company_name': cin_registered_name,
+                'reasons': reasons if reasons else ['All standard verification checks passed']
+            }
         except Exception as e:
-            print(f"Prediction error: {e}")
+            print(f"Prediction exception: {e}")
             return {
                 'prediction': 'REAL',
                 'probability': 0.5,
                 'risk_level': 'Medium',
                 'suspicious_score': 5,
                 'verification_status': 'MANUAL_REVIEW',
-                'scam_status': f'Error: {str(e)}',
-                'tamil_nadu_registered': 'Unknown'
+                'scam_status': f'Error during analysis: {str(e)}',
+                'tamil_nadu_registered': 'Unknown',
+                'cin_verified': 'Error',
+                'registered_company_name': None,
+                'reasons': ['System error during evaluation; marked for manual review']
             }
 
-# Initialize detector
-try:
-    detector = JobFraudDetector()
-    print("✓ Fraud detector initialized!")
-except Exception as e:
-    print(f"ERROR initializing detector: {e}")
-    detector = None
+# Initialize Fraud Detector
+detector = JobFraudDetector()
 
 # ============================================================================
-# VISITOR COUNTER
+# PERSISTED IN-MEMORY COLLECTIONS
 # ============================================================================
-def load_visitors():
-    """Load visitor count from file"""
-    try:
-        with open('visitors.json', 'r') as f:
-            data = json.load(f)
-            return data.get('count', 0)
-    except:
-        return 0
-
-def save_visitors(count):
-    """Save visitor count to file"""
-    try:
-        with open('visitors.json', 'w') as f:
-            json.dump({'count': count, 'last_updated': str(datetime.now())}, f, indent=2)
-    except:
-        pass
-
-# ============================================================================
-# LOAD DATA
-# ============================================================================
-def load_users():
-    """Load users from JSON file"""
-    try:
-        with open('users.json', 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_users(users):
-    """Save users to JSON file"""
-    try:
-        with open('users.json', 'w') as f:
-            json.dump(users, f, indent=2, default=str)
-    except:
-        pass
-
-def load_predictions():
-    """Load predictions from JSON file"""
-    try:
-        with open('predictions.json', 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_predictions(predictions):
-    """Save predictions to JSON file"""
-    try:
-        with open('predictions.json', 'w') as f:
-            json.dump(predictions, f, indent=2, default=str)
-    except:
-        pass
-
-users_collection = load_users()
-predictions_collection = load_predictions()
+users_collection = load_json_safe(USERS_FILE, [])
+predictions_collection = load_json_safe(PREDICTIONS_FILE, [])
 
 # ============================================================================
 # API ROUTES
@@ -342,52 +582,69 @@ predictions_collection = load_predictions()
 
 @app.route('/')
 def home():
-    return jsonify({"message": "SAFE HIRE API is running!"})
+    return jsonify({
+        "message": "SAFE HIRE API is running!",
+        "version": "2.1.0",
+        "features": ["ML Ensemble", "MCA Registry", "CIN Verification", "Optional Email/Web"],
+        "status": "online"
+    })
 
 @app.route('/api/visitors', methods=['GET', 'POST'])
 def visitors():
-    """Get or increment visitor count"""
-    try:
-        count = load_visitors()
+    """Get or increment visitor count thread-safely"""
+    with visitors_lock:
+        data = load_json_safe(VISITORS_FILE, {'count': 0})
+        count = data.get('count', 0)
         if request.method == 'POST':
             count += 1
-            save_visitors(count)
+            data['count'] = count
+            data['last_updated'] = str(datetime.now())
+            atomic_save_json(VISITORS_FILE, data)
         return jsonify({"visitor_count": count})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Predict if job/company listing is fake or real"""
+    """Predict if a company or job posting is legitimate or fraudulent (email & website optional)"""
     try:
         data = request.get_json()
-        
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return jsonify({"error": "No JSON payload provided"}), 400
 
-        required_fields = ['company_name', 'title', 'description', 'email', 'website']
+        # Required fields are strictly company_name, title, and description
+        required_fields = ['company_name', 'title', 'description']
         for field in required_fields:
-            if field not in data:
-                return jsonify({"error": f"Missing field: {field}"}), 400
-
-        if not detector:
-            return jsonify({"error": "Fraud detector not initialized"}), 500
+            if not data.get(field):
+                return jsonify({"error": f"Missing required field: {field}"}), 400
 
         result = detector.predict_record(
-            data['company_name'],
-            data['title'],
-            data['description'],
-            data['email'],
-            data['website']
+            company_name=data.get('company_name', ''),
+            title=data.get('title', ''),
+            description=data.get('description', ''),
+            email=data.get('email', ''),
+            website=data.get('website', ''),
+            cin=data.get('cin', '')
         )
 
-        prediction_record = {
-            **data,
-            **result,
-            'timestamp': str(datetime.now())
-        }
-        predictions_collection.append(prediction_record)
-        save_predictions(predictions_collection)
+        # Record prediction history
+        with predictions_lock:
+            record = {
+                'id': len(predictions_collection) + 1,
+                'company_name': data.get('company_name'),
+                'title': data.get('title'),
+                'email': data.get('email', ''),
+                'website': data.get('website', ''),
+                'cin': data.get('cin', ''),
+                'prediction': result['prediction'],
+                'probability': result['probability'],
+                'risk_level': result['risk_level'],
+                'suspicious_score': result['suspicious_score'],
+                'verification_status': result['verification_status'],
+                'scam_status': result['scam_status'],
+                'cin_verified': result.get('cin_verified', 'Not Provided'),
+                'timestamp': datetime.now().isoformat()
+            }
+            predictions_collection.append(record)
+            atomic_save_json(PREDICTIONS_FILE, predictions_collection)
 
         return jsonify(result)
     except Exception as e:
@@ -395,46 +652,66 @@ def predict():
 
 @app.route('/auth/register', methods=['POST'])
 def register():
-    """Register a new user"""
+    """Register a new user account"""
     try:
         data = request.get_json()
-        if not all(k in data for k in ['name', 'email', 'password']):
-            return jsonify({"error": "Missing required fields"}), 400
+        if not data or not all(k in data for k in ['name', 'email', 'password']):
+            return jsonify({"error": "Name, email, and password are required"}), 400
 
-        if any(u['email'] == data['email'] for u in users_collection):
-            return jsonify({"error": "Email already registered"}), 400
+        email = data['email'].strip().lower()
+        if not email or '@' not in email:
+            return jsonify({"error": "Valid email address is required"}), 400
 
-        user = {
-            'name': data['name'],
-            'email': data['email'],
-            'password': bcrypt.hashpw(data['password'].encode(), bcrypt.gensalt()).decode(),
-            'role': 'user',
-            'created_at': str(datetime.now())
-        }
-        users_collection.append(user)
-        save_users(users_collection)
+        if len(data['password']) < 6:
+            return jsonify({"error": "Password must be at least 6 characters"}), 400
 
-        return jsonify({"message": "Registration successful!"})
+        with users_lock:
+            if any(u['email'].lower() == email for u in users_collection):
+                return jsonify({"error": "Email is already registered"}), 400
+
+            hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            role = 'admin' if email in ADMIN_EMAILS else 'user'
+
+            new_user = {
+                'name': data['name'].strip(),
+                'email': email,
+                'password': hashed_pw,
+                'role': role,
+                'created_at': datetime.now().isoformat()
+            }
+            users_collection.append(new_user)
+            atomic_save_json(USERS_FILE, users_collection)
+
+        return jsonify({"message": "Registration successful! Please sign in."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/auth/login', methods=['POST'])
 def login():
-    """Login a user"""
+    """Authenticate a user and return a JWT access token"""
     try:
         data = request.get_json()
-        user = next((u for u in users_collection if u['email'] == data.get('email')), None)
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({"error": "Email and password are required"}), 400
 
-        if not user or not bcrypt.checkpw(data.get('password', '').encode(), user['password'].encode()):
-            return jsonify({"error": "Invalid credentials"}), 401
+        email = data['email'].strip().lower()
+        password = data['password']
 
+        with users_lock:
+            user = next((u for u in users_collection if u['email'].lower() == email), None)
+
+        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+            return jsonify({"error": "Invalid email or password"}), 401
+
+        user_role = resolve_role(user)
         access_token = create_access_token(identity=user['email'])
+
         return jsonify({
             "access_token": access_token,
             "user": {
                 "name": user['name'],
                 "email": user['email'],
-                "role": resolve_role(user)
+                "role": user_role
             }
         })
     except Exception as e:
@@ -443,12 +720,15 @@ def login():
 @app.route('/auth/me', methods=['GET'])
 @jwt_required()
 def me():
-    """Get current user info"""
+    """Return profile details for current authenticated user"""
     try:
-        email = get_jwt_identity()
-        user = next((u for u in users_collection if u['email'] == email), None)
+        email = get_jwt_identity().lower()
+        with users_lock:
+            user = next((u for u in users_collection if u['email'].lower() == email), None)
+
         if not user:
             return jsonify({"error": "User not found"}), 404
+
         return jsonify({
             "name": user['name'],
             "email": user['email'],
@@ -460,37 +740,53 @@ def me():
 @app.route('/admin/analytics', methods=['GET'])
 @jwt_required()
 def analytics():
-    """Get analytics (admin only)"""
+    """Get comprehensive admin analytics and recent predictions"""
     try:
-        email = get_jwt_identity()
-        user = next((u for u in users_collection if u['email'] == email), None)
+        email = get_jwt_identity().lower()
+        with users_lock:
+            user = next((u for u in users_collection if u['email'].lower() == email), None)
+
         if resolve_role(user) != 'admin':
-            return jsonify({"error": "Unauthorized"}), 403
+            return jsonify({"error": "Administrator access required"}), 403
 
-        total = len(predictions_collection)
-        fake_count = len([p for p in predictions_collection if p.get('prediction') == 'FAKE'])
-        real_count = total - fake_count
+        with predictions_lock:
+            total = len(predictions_collection)
+            fake_count = len([p for p in predictions_collection if p.get('prediction') == 'FAKE'])
+            real_count = total - fake_count
+            fake_percentage = round((fake_count / total * 100), 1) if total > 0 else 0
 
-        return jsonify({
-            "total_predictions": total,
-            "risk_distribution": {
+            risk_dist = {
                 "high": len([p for p in predictions_collection if p.get('risk_level') == 'High']),
                 "medium": len([p for p in predictions_collection if p.get('risk_level') == 'Medium']),
                 "low": len([p for p in predictions_collection if p.get('risk_level') == 'Low'])
-            },
-            "predictions_summary": {"REAL": real_count, "FAKE": fake_count}
+            }
+
+            # Return latest 10 predictions formatted
+            recent = list(reversed(predictions_collection[-10:]))
+
+        return jsonify({
+            "total_predictions": total,
+            "real_predictions": real_count,
+            "fake_predictions": fake_count,
+            "fake_percentage": fake_percentage,
+            "risk_distribution": risk_dist,
+            "predictions_summary": {"REAL": real_count, "FAKE": fake_count},
+            "recent_predictions": recent
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # ============================================================================
-# STARTUP
+# APPLICATION ENTRYPOINT
 # ============================================================================
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5050))
+    host = os.environ.get('HOST', '0.0.0.0')
     print("=" * 60)
-    print("SAFE HIRE - Fake Job Detection System")
+    print("SAFE HIRE: Fake Company & Job Detection API")
     print("=" * 60)
-    print(f"Loaded {len(users_collection)} users")
-    print(f"Loaded {len(predictions_collection)} predictions")
+    print(f"Registered users in database: {len(users_collection)}")
+    print(f"Logged verifications in database: {len(predictions_collection)}")
+    print(f"Listening on http://{host}:{port}")
     print("=" * 60)
-    app.run(debug=False, port=5050, host='127.0.0.1')
+    app.run(debug=False, port=port, host=host)

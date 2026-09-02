@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "5050:5050"
+    environment:
+      - PORT=5050
+      - JWT_SECRET_KEY=safe-hire-production-secret-key
+      - ADMIN_EMAILS=admin@example.com
+    volumes:
+      - ./backend/users.json:/app/backend/users.json
+      - ./backend/predictions.json:/app/backend/predictions.json
+      - ./backend/visitors.json:/app/backend/visitors.json
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend

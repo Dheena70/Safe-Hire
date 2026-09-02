@@ -28,22 +28,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analytics...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[70vh]">
+        <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin mb-4" />
+        <p className="text-slate-400 text-sm font-medium">Aggregating real-time detection intelligence...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-100 border-l-4 border-red-600 text-red-800 p-6 rounded max-w-md">
-          <p className="font-bold text-lg mb-2">❌ Error Loading Dashboard</p>
-          <p className="text-sm">{error}</p>
-        </div>
+      <div className="max-w-md mx-auto my-12 p-6 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-2xl shadow-xl">
+        <p className="font-bold text-base mb-1 flex items-center space-x-2">
+          <span>❌</span>
+          <span>Access Error</span>
+        </p>
+        <p className="text-xs text-rose-200">{error}</p>
       </div>
     );
   }
@@ -52,170 +51,182 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
     return null;
   }
 
-  // Safe defaults - Use the actual property names from backend
   const totalPredictions = analytics.total_predictions ?? 0;
-  const realCount = (analytics as any).predictions_summary?.REAL ?? 0;
-  const fakeCount = (analytics as any).predictions_summary?.FAKE ?? 0;
+  const realCount = analytics.real_predictions ?? (analytics.predictions_summary?.REAL ?? 0);
+  const fakeCount = analytics.fake_predictions ?? (analytics.predictions_summary?.FAKE ?? 0);
   const riskDist = analytics.risk_distribution ?? { high: 0, medium: 0, low: 0 };
+  const recentList = analytics.recent_predictions ?? [];
 
   const riskPercent = (count: number) =>
     totalPredictions > 0 ? ((count / totalPredictions) * 100).toFixed(1) : '0';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">📊 Admin Dashboard</h1>
-          <p className="text-gray-400">Real-time fraud detection analytics</p>
+    <div className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+        <div>
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-2">
+            <span>🛡️</span>
+            <span>Security Operations Center</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black text-white">Admin Intelligence Dashboard</h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Live monitoring of employment verification queries and fraud risk metrics</p>
         </div>
+      </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Total Predictions */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-semibold">Total Verifications</p>
-                <p className="text-4xl font-bold mt-2">{totalPredictions}</p>
-              </div>
-              <div className="text-5xl opacity-20">📈</div>
-            </div>
-          </div>
-
-          {/* Real Listings */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-semibold">✅ Real Listings</p>
-                <p className="text-4xl font-bold mt-2">{realCount}</p>
-              </div>
-              <div className="text-5xl opacity-20">✓</div>
-            </div>
-          </div>
-
-          {/* Fake Listings */}
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-100 text-sm font-semibold">❌ Fake Listings</p>
-                <p className="text-4xl font-bold mt-2">{fakeCount}</p>
-              </div>
-              <div className="text-5xl opacity-20">✕</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Risk Distribution */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-xl p-8 border border-white/20 mb-8">
-          <h2 className="text-2xl font-bold text-white mb-6">Risk Level Distribution</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* High Risk */}
-            <div className="bg-red-50 rounded-lg p-6 border-l-4 border-red-500">
-              <p className="text-red-900 text-sm font-semibold mb-2">🔴 High Risk</p>
-              <p className="text-3xl font-bold text-red-700">{riskDist.high}</p>
-              <p className="text-xs text-red-600 mt-2">
-                {riskPercent(riskDist.high)}% of total
-              </p>
-            </div>
-
-            {/* Medium Risk */}
-            <div className="bg-yellow-50 rounded-lg p-6 border-l-4 border-yellow-500">
-              <p className="text-yellow-900 text-sm font-semibold mb-2">🟡 Medium Risk</p>
-              <p className="text-3xl font-bold text-yellow-700">{riskDist.medium}</p>
-              <p className="text-xs text-yellow-600 mt-2">
-                {riskPercent(riskDist.medium)}% of total
-              </p>
-            </div>
-
-            {/* Low Risk */}
-            <div className="bg-green-50 rounded-lg p-6 border-l-4 border-green-500">
-              <p className="text-green-900 text-sm font-semibold mb-2">🟢 Low Risk</p>
-              <p className="text-3xl font-bold text-green-700">{riskDist.low}</p>
-              <p className="text-xs text-green-600 mt-2">
-                {riskPercent(riskDist.low)}% of total
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Risk Distribution Bar Chart */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-xl p-8 border border-white/20 mb-8">
-          <h2 className="text-2xl font-bold text-white mb-6">Risk Level Breakdown</h2>
-          
-          <div className="space-y-4">
+      {/* Key Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Total Predictions */}
+        <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between">
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-white">High Risk</span>
-                <span className="text-sm text-gray-300">{riskDist.high} predictions</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-red-500 h-2 rounded-full" 
-                  style={{ width: `${riskPercent(riskDist.high)}%` }}
-                ></div>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Verifications</p>
+              <p className="text-4xl font-extrabold text-white mt-2 font-mono">{totalPredictions}</p>
             </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-white">Medium Risk</span>
-                <span className="text-sm text-gray-300">{riskDist.medium} predictions</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-yellow-500 h-2 rounded-full" 
-                  style={{ width: `${riskPercent(riskDist.medium)}%` }}
-                ></div>
-              </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-2xl">
+              📈
             </div>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-4">Cumulative queries processed by AI engine</p>
+        </div>
 
+        {/* Real Listings */}
+        <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between">
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-white">Low Risk</span>
-                <span className="text-sm text-gray-300">{riskDist.low} predictions</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-green-500 h-2 rounded-full" 
-                  style={{ width: `${riskPercent(riskDist.low)}%` }}
-                ></div>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Verified Real Listings</p>
+              <p className="text-4xl font-extrabold text-emerald-400 mt-2 font-mono">{realCount}</p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl">
+              ✅
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-4">
+            {totalPredictions > 0 ? ((realCount / totalPredictions) * 100).toFixed(1) : 0}% of all verified submissions
+          </p>
+        </div>
+
+        {/* Fake Listings */}
+        <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Flagged Fraudulent</p>
+              <p className="text-4xl font-extrabold text-rose-400 mt-2 font-mono">{fakeCount}</p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl">
+              🚨
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-4">
+            {totalPredictions > 0 ? ((fakeCount / totalPredictions) * 100).toFixed(1) : 0}% fraud detection rate
+          </p>
+        </div>
+      </div>
+
+      {/* Risk Level Distribution Cards */}
+      <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <h2 className="text-lg font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+          <span>📊</span>
+          <span>Risk Classification Distribution</span>
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* High Risk */}
+          <div className="bg-slate-950/70 p-5 rounded-2xl border border-rose-500/30 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">🔴 High Risk</span>
+              <span className="text-xs font-mono text-slate-400">{riskPercent(riskDist.high)}%</span>
+            </div>
+            <p className="text-3xl font-extrabold text-white mt-2 font-mono">{riskDist.high}</p>
+            <div className="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+              <div className="bg-rose-500 h-full rounded-full" style={{ width: `${riskPercent(riskDist.high)}%` }} />
+            </div>
+          </div>
+
+          {/* Medium Risk */}
+          <div className="bg-slate-950/70 p-5 rounded-2xl border border-amber-500/30 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">🟡 Medium Risk</span>
+              <span className="text-xs font-mono text-slate-400">{riskPercent(riskDist.medium)}%</span>
+            </div>
+            <p className="text-3xl font-extrabold text-white mt-2 font-mono">{riskDist.medium}</p>
+            <div className="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+              <div className="bg-amber-400 h-full rounded-full" style={{ width: `${riskPercent(riskDist.medium)}%` }} />
+            </div>
+          </div>
+
+          {/* Low Risk */}
+          <div className="bg-slate-950/70 p-5 rounded-2xl border border-emerald-500/30 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">🟢 Low Risk</span>
+              <span className="text-xs font-mono text-slate-400">{riskPercent(riskDist.low)}%</span>
+            </div>
+            <p className="text-3xl font-extrabold text-white mt-2 font-mono">{riskDist.low}</p>
+            <div className="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+              <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${riskPercent(riskDist.low)}%` }} />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Info Box */}
-        {totalPredictions === 0 && (
-          <div className="bg-blue-100 border-l-4 border-blue-600 text-blue-800 p-6 rounded mb-8">
-            <p className="font-bold">ℹ️ No Data Yet</p>
-            <p className="text-sm mt-1">Start verifying companies to see analytics here.</p>
+      {/* Live Recent Verifications Log Table */}
+      <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <h2 className="text-lg font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+          <span>📋</span>
+          <span>Recent Verification Stream</span>
+        </h2>
+
+        {recentList.length === 0 ? (
+          <p className="text-xs text-slate-400">No verifications recorded in live memory.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="w-full text-left text-xs text-slate-200">
+              <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="px-4 py-3.5">Company Name</th>
+                  <th className="px-4 py-3.5">Job Title</th>
+                  <th className="px-4 py-3.5">Prediction</th>
+                  <th className="px-4 py-3.5">Risk Level</th>
+                  <th className="px-4 py-3.5">Legitimacy Conf.</th>
+                  <th className="px-4 py-3.5">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 bg-slate-900/50">
+                {recentList.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-800/50 transition">
+                    <td className="px-4 py-3.5 font-semibold text-white">{item.company_name}</td>
+                    <td className="px-4 py-3.5 text-slate-300">{item.title}</td>
+                    <td className="px-4 py-3.5">
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                        item.prediction === 'REAL'
+                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/10 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {item.prediction}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={`font-semibold ${
+                        item.risk_level === 'High' ? 'text-rose-400' : item.risk_level === 'Medium' ? 'text-amber-400' : 'text-emerald-400'
+                      }`}>
+                        {item.risk_level}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 font-mono text-cyan-400">
+                      {(item.probability * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px]">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-
-        {/* Summary Stats */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-xl font-bold text-white mb-4">Summary</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-gray-300 text-sm">Total Verified</p>
-              <p className="text-3xl font-bold text-white mt-2">{totalPredictions}</p>
-            </div>
-            <div>
-              <p className="text-gray-300 text-sm">Legitimate Rate</p>
-              <p className="text-3xl font-bold text-green-400 mt-2">
-                {totalPredictions > 0 ? ((realCount / totalPredictions) * 100).toFixed(1) : 0}%
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-300 text-sm">Fraud Detection Rate</p>
-              <p className="text-3xl font-bold text-red-400 mt-2">
-                {totalPredictions > 0 ? ((fakeCount / totalPredictions) * 100).toFixed(1) : 0}%
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
