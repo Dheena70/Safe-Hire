@@ -1,127 +1,96 @@
-# SAFE HIRE
+<div align="center">
+  <img src="frontend/src/assets/safe-hire-brand.png" alt="SAFE HIRE Logo" width="380" />
 
-SAFE HIRE is a full-stack company verification and fake-job detection platform. It combines machine-learning predictions with rule-based checks to help users identify suspicious companies and job offers before sharing personal information.
+  # SAFE HIRE
+  
+  **AI-Powered Job Scam & Corporate Legitimacy Verification Platform**
 
-## Features
+  [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+  [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
+  [![Flask](https://img.shields.io/badge/Flask-2.3+-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+  [![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML%20Ensemble-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+  [![Tailwind CSS](https://img.shields.io/badge/Tailwind-Cyber--Glassmorphism-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+</div>
 
-- Company and job-offer risk prediction with `REAL` or `FAKE` results
-- Confidence score and low, medium, or high risk classification
-- TF-IDF text analysis with Logistic Regression and Random Forest models
-- Tamil Nadu company registry lookup
-- Scam-company dataset comparison
-- Email-domain and website validation checks
-- User registration and JWT-based login
-- Admin analytics dashboard with prediction and risk statistics
+---
 
-## Technology Stack
+## 📌 Overview
 
-- **Frontend:** React, TypeScript, Tailwind CSS, Axios
-- **Backend:** Python, Flask, Flask-CORS, Flask-JWT-Extended
-- **Machine learning:** scikit-learn, pandas, NumPy, NLTK, joblib
-- **Data:** CSV datasets and JSON application storage
+**SAFE HIRE** is a production-grade cyber-intelligence and machine-learning platform designed to safeguard job seekers against employment fraud, fake job offers, and impersonation schemes.
 
-## Project Structure
+It combines **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembles** with official **Ministry of Corporate Affairs (MCA) Corporate Identification Number (CIN)** verification, regional registries (~228,000 corporate records), and live fraud databases.
 
-```text
-SAFE_HIRE/
-├── backend/       # Flask API, datasets, and model training code
-├── frontend/      # React and TypeScript application
-├── datasets/      # Sample company and scam datasets
-├── ml_models/     # Trained model artifacts
-├── start.bat      # Start both services on Windows
-├── start.sh       # Start both services on macOS/Linux
-└── README.md
-```
+---
 
-## Requirements
+## ✨ Key Features
 
-- Python 3.8 or newer
-- Node.js 16 or newer
-- npm
+- 🛡️ **Hybrid ML & Heuristic Scoring Engine**: Combines NLP TF-IDF text classification with domain heuristics for high-accuracy fraud detection.
+- 🏷️ **Official MCA CIN Verification**: Instant cross-referencing of 21-character Corporate Identification Numbers with registered legal entity names.
+- 🏛️ **MCA & Regional Registry Lookup**: Validates corporate identity against extensive company records.
+- 🚨 **Live Scam Database Cross-Check**: Real-time matching against reported fraudulent company listings.
+- 🌐 **Domain & Email Consistency Verification**: Detects free email providers (Gmail, Yahoo) and website-email domain mismatches.
+- 📄 **Optional Contact Email & Website**: Full verification available using only Company Name, Job Title, and Description.
+- 📊 **Animated Legitimacy Gauge & Forensic Audit**: Real-time confidence score (0–100%), risk tiers (Low/Medium/High), and 1-click `.txt` audit report exporter.
+- 🔐 **Secure JWT Authentication & Role-Based Access**: 256-bit JWT authentication with Bcrypt password encryption.
+- 📈 **Real-Time Admin Intelligence Dashboard**: Analytics, risk distributions, and recent verification history.
 
-## Run Locally
+---
 
-### Windows
+## 🛠️ Technology Stack
 
-From the project root, double-click `start.bat`, or run:
+| Component | Technology |
+|---|---|
+| **Frontend UI** | React 18, TypeScript, Tailwind CSS, Cyber-Glassmorphism |
+| **Backend API** | Python 3.11, Flask, Flask-CORS, Flask-JWT-Extended, Gunicorn |
+| **Machine Learning & NLP** | scikit-learn (TF-IDF, Logistic Regression, Random Forest), NLTK, NumPy, Pandas |
+| **Databases & Storage** | MCA Corporate Registries (CSV), Thread-Safe Atomic JSON |
+| **DevOps & Hosting** | Procfile, Docker, Vercel SPA Config, Render Gunicorn Service |
 
+---
+
+## 🚀 Quick Start (Local Run)
+
+### Windows:
 ```powershell
 .\start.bat
 ```
 
-### macOS/Linux
-
+### macOS / Linux:
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-The services are then available at:
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:5050`
 
-- Frontend: <http://localhost:3000>
-- Backend: <http://localhost:5050>
+---
 
-### Manual setup
+## ☁️ 1-Step Cloud Hosting (Render.com)
 
-Install backend dependencies:
+1. Connect your GitHub repository to [Render.com](https://dashboard.render.com/).
+2. Select **Web Service**:
+   - **Build Command**: `chmod +x build.sh && ./build.sh`
+   - **Start Command**: `gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
+3. Add Environment Variables:
+   - `JWT_SECRET_KEY` = `your-secret-key`
+   - `ADMIN_EMAILS` = `admin@example.com`
 
-```bash
-cd backend
-python -m pip install -r requirements.txt
-python app.py
-```
+---
 
-In a second terminal, install and start the frontend:
+## 📜 API Endpoints
 
-```bash
-cd frontend
-npm install
-npm start
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/predict` | Analyze company, CIN, job description & offer details |
+| `POST` | `/auth/register` | Register a new user account |
+| `POST` | `/auth/login` | Authenticate user & receive JWT access token |
+| `GET` | `/auth/me` | Fetch current user session profile |
+| `GET` | `/admin/analytics` | Fetch admin analytics & recent verification logs |
+| `POST` | `/api/visitors` | Atomic visitor tracking counter |
 
-The backend loads the trained models from `ml_models/` when they are available. To retrain them, run:
+---
 
-```bash
-cd backend
-python train_models.py
-```
-
-## Configuration
-
-The backend reads environment variables from `backend/.env`:
-
-```env
-JWT_SECRET_KEY=replace-with-a-long-random-secret
-ADMIN_EMAILS=admin@example.com
-```
-
-Do not commit `.env`, passwords, API keys, or real user data to GitHub. Keep private files such as `backend/users.json` and `backend/visitors.json` out of public repositories when they contain personal information.
-
-## API Endpoints
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/predict` | Analyze a company or job offer |
-| `POST` | `/auth/register` | Register a user |
-| `POST` | `/auth/login` | Authenticate a user |
-| `GET` | `/auth/me` | Get the authenticated user |
-| `GET` | `/admin/analytics` | Get admin dashboard statistics |
-| `POST` | `/api/visitors` | Update and return visitor count |
-
-## How Detection Works
-
-1. The user submits company, job, email, and website details.
-2. The backend extracts text and metadata features.
-3. ML models evaluate the description and structured features.
-4. Registry, scam-list, email, website, and rule-based checks add verification signals.
-5. SAFE HIRE returns a prediction, confidence score, risk level, and supporting status details.
-
-Results are decision-support signals and should be checked against official sources before making an employment or financial decision.
-
-## License
-
+## 📄 License
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-## Author
-
-Developed as a full-stack machine-learning project for safer company and job-offer verification.
