@@ -45,14 +45,14 @@ VISITORS_FILE = os.path.join(BASE_DIR, 'visitors.json')
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'safe-hire-production-secret-key-change-in-env')
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'safe-hire-production-auto-secure-jwt-key-2026-dheena')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 jwt = JWTManager(app)
 
-# Allowed admin emails
+# Allowed admin emails (defaults include user's admin email)
 ADMIN_EMAILS = {
     email.strip().lower()
-    for email in os.getenv('ADMIN_EMAILS', 'admin@example.com').split(',')
+    for email in os.getenv('ADMIN_EMAILS', 'rdheena0509@gmail.com,admin@example.com').split(',')
     if email.strip()
 }
 
