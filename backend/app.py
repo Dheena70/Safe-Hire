@@ -878,6 +878,7 @@ def register():
 
         name = sanitize_text(data.get('name', ''), max_len=100)
         email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        phone = sanitize_text(data.get('phone', ''), max_len=30)
         password = str(data.get('password', ''))
 
         if not name or len(name) < 2:
@@ -900,6 +901,7 @@ def register():
             new_user = {
                 'name': name,
                 'email': email,
+                'phone': phone,
                 'password': hashed_pw,
                 'role': role,
                 'created_at': datetime.now().isoformat()
@@ -951,9 +953,16 @@ def login():
         logger.error(f"Error in /auth/login: {e}")
         return jsonify({"error": "An error occurred during sign in."}), 500
 
+def normalize_phone(phone: str) -> str:
+    """Normalize phone number to digits or clean international format"""
+    if not phone:
+        return ''
+    cleaned = re.sub(r'[\s\-\(\)]', '', phone.strip())
+    return cleaned
+
 @app.route('/auth/send-otp', methods=['POST'])
 def send_otp():
-    """Generate and dispatch a cryptographically secure 6-digit OTP for password reset"""
+    """Generate and dispatch a cryptographically secure 6-digit OTP for Email or Phone"""
     rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
     if rate_err:
         return rate_err
@@ -963,31 +972,70 @@ def send_otp():
         if not data or not isinstance(data, dict):
             return jsonify({"error": "Valid JSON payload required."}), 400
 
-        email = sanitize_text(data.get('email', ''), max_len=150).lower()
-        if not email or not EMAIL_REGEX.match(email):
-            return jsonify({"error": "A valid registered email address is required."}), 400
+        method = sanitize_text(data.get('method', 'email'), max_len=10).lower()
+        identifier = sanitize_text(data.get('identifier', '') or data.get('email', '') or data.get('phone', ''), max_len=150).strip()
+
+        if not identifier:
+            return jsonify({"error": "Please provide your registered Email Address or Phone Number."}), 400
+
+        clean_id = identifier.lower() if '@' in identifier else normalize_phone(identifier)
+        user = None
 
         with users_lock:
-            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
-            if not user:
-                return jsonify({"error": "No registered account found with this email address."}), 404
+            for u in users_collection:
+                u_email = (u.get('email') or '').strip().lower()
+                u_phone = normalize_phone(u.get('phone') or '')
+                if '@' in identifier and u_email == clean_id:
+                    user = u
+                    break
+                elif normalize_phone(identifier) and (u_phone == clean_id or (u_phone and clean_id and (u_phone.endswith(clean_id) or clean_id.endswith(u_phone)))):
+                    user = u
+                    break
+                # Fallback: if user typed email in phone mode or vice-versa
+                elif u_email == clean_id or (u_phone and u_phone == clean_id):
+                    user = u
+                    break
+
+        if not user:
+            # If user not found by phone/email specifically, provide helpful error
+            target_type = "Phone Number" if ('@' not in identifier and any(c.isdigit() for c in identifier)) else "Email Address"
+            return jsonify({"error": f"No registered account found with this {target_type}."}), 404
 
         # Generate 6-digit numeric OTP with cryptographic entropy
         otp_val = str(secrets.randbelow(900000) + 100000)
         expires_at = time.time() + 600  # 10 minutes validity
 
+        lookup_key = user.get('email', '').strip().lower()
+
         with otp_lock:
-            otp_store[email] = {
+            otp_store[lookup_key] = {
                 'otp': otp_val,
                 'expires_at': expires_at,
-                'attempts': 0
+                'attempts': 0,
+                'user_email': lookup_key
             }
+            # Also key by phone if available
+            if user.get('phone'):
+                otp_store[normalize_phone(user['phone'])] = otp_store[lookup_key]
 
-        logger.info(f"Generated password reset OTP for {email} (Expires in 10 minutes)")
+        masked_target = lookup_key
+        if method == 'phone' or ('@' not in identifier and any(c.isdigit() for c in identifier)):
+            raw_phone = user.get('phone') or identifier
+            masked_target = f"******{raw_phone[-4:]}" if len(raw_phone) >= 4 else raw_phone
+            msg = f"A 6-digit OTP code has been dispatched to your registered Mobile Number ({masked_target})."
+        else:
+            parts = lookup_key.split('@')
+            masked_target = f"{parts[0][:2]}***@{parts[1]}" if len(parts) == 2 and len(parts[0]) >= 2 else lookup_key
+            msg = f"A 6-digit OTP code has been dispatched to your registered Email ({masked_target})."
+
+        logger.info(f"Generated password reset OTP for user {lookup_key} via {method} (Expires in 10 mins)")
 
         return jsonify({
-            "message": f"A 6-digit verification code has been dispatched to {email}.",
-            "otp_preview": otp_val,  # Live demonstration code for verification
+            "message": msg,
+            "target": masked_target,
+            "method": method,
+            "otp_preview": otp_val,  # Live demonstration code
+            "identifier": lookup_key,
             "expires_in_seconds": 600
         })
     except Exception as e:
@@ -1007,12 +1055,12 @@ def verify_otp_reset():
         if not data or not isinstance(data, dict):
             return jsonify({"error": "Valid JSON payload required."}), 400
 
-        email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        identifier = sanitize_text(data.get('identifier', '') or data.get('email', '') or data.get('phone', ''), max_len=150).strip()
         otp = sanitize_text(data.get('otp', ''), max_len=10).strip()
         new_password = str(data.get('new_password', ''))
 
-        if not email or not EMAIL_REGEX.match(email):
-            return jsonify({"error": "A valid registered email address is required."}), 400
+        if not identifier:
+            return jsonify({"error": "Registered email or phone is required."}), 400
 
         if not otp or len(otp) != 6 or not otp.isdigit():
             return jsonify({"error": "Please enter a valid 6-digit verification code."}), 400
@@ -1021,17 +1069,24 @@ def verify_otp_reset():
         if not valid_pw:
             return jsonify({"error": pw_err}), 400
 
+        clean_id = identifier.lower() if '@' in identifier else normalize_phone(identifier)
+        user_email = None
+
         with otp_lock:
-            record = otp_store.get(email)
+            record = otp_store.get(clean_id)
             if not record:
-                return jsonify({"error": "No active OTP request found. Please request a new code first."}), 400
+                # Check by looking through active records
+                record = next((r for k, r in otp_store.items() if k == clean_id or r.get('user_email') == clean_id), None)
+
+            if not record:
+                return jsonify({"error": "No active OTP request found. Please request a new code."}), 400
 
             if time.time() > record['expires_at']:
-                otp_store.pop(email, None)
+                otp_store.pop(clean_id, None)
                 return jsonify({"error": "Verification code has expired. Please request a new code."}), 400
 
             if record['attempts'] >= 5:
-                otp_store.pop(email, None)
+                otp_store.pop(clean_id, None)
                 return jsonify({"error": "Maximum verification attempts exceeded. Please request a new code."}), 429
 
             if not secrets.compare_digest(record['otp'], otp):
@@ -1039,11 +1094,14 @@ def verify_otp_reset():
                 remaining = 5 - record['attempts']
                 return jsonify({"error": f"Invalid verification code. ({remaining} attempts remaining)"}), 400
 
+            user_email = record.get('user_email') or clean_id
             # Verified successfully! Remove OTP to prevent replay attacks
-            otp_store.pop(email, None)
+            otp_store.pop(clean_id, None)
+            if user_email in otp_store:
+                otp_store.pop(user_email, None)
 
         with users_lock:
-            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
+            user = next((u for u in users_collection if u.get('email', '').lower() == user_email.lower()), None)
             if not user:
                 return jsonify({"error": "User account not found."}), 404
 

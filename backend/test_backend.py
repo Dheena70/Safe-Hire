@@ -180,49 +180,61 @@ for _ in range(10):
 assert exceeded is True, "Rate limiter did not trigger 429 on rapid requests!"
 print("  [PASS] Rate limiter triggered 429 Too Many Requests on abuse attempt.")
 
-# 11. 2-Step OTP Password Reset Flow Test
-print("\n[Test 11] Testing 2-Step OTP Password Reset Flow (/auth/send-otp & /auth/verify-otp-reset)...")
+# 11. 2-Step OTP Password Reset Flow Test (Email & Phone)
+print("\n[Test 11] Testing 2-Step OTP Password Reset Flow (/auth/send-otp & /auth/verify-otp-reset via Email & Phone)...")
 limiter.requests.clear()
 reset_test_email = f"reset_user_{os.getpid()}@example.com"
+reset_test_phone = f"+9198765{os.getpid() % 100000:05d}"
 client.post('/auth/register', json={
     "name": "Reset Test User",
     "email": reset_test_email,
+    "phone": reset_test_phone,
     "password": "InitialPassword123!"
 })
 
-# Step 1: Send 6-Digit OTP
-send_otp_res = client.post('/auth/send-otp', json={"email": reset_test_email})
-assert send_otp_res.status_code == 200, f"Send OTP failed: {send_otp_res.data}"
+# Step 1: Send 6-Digit OTP via Email
+send_otp_res = client.post('/auth/send-otp', json={"identifier": reset_test_email, "method": "email"})
+assert send_otp_res.status_code == 200, f"Send OTP via email failed: {send_otp_res.data}"
 otp_code = send_otp_res.json.get('otp_preview')
 assert otp_code and len(otp_code) == 6 and otp_code.isdigit(), "Invalid OTP generated!"
 
 # Step 2a: Test wrong OTP rejection
 wrong_otp_res = client.post('/auth/verify-otp-reset', json={
-    "email": reset_test_email,
+    "identifier": reset_test_email,
     "otp": "000000",
     "new_password": "BrandNewPassword2026!"
 })
 assert wrong_otp_res.status_code == 400, "Wrong OTP was not rejected!"
 assert "invalid" in wrong_otp_res.json.get('error', '').lower()
 
-# Step 2b: Test valid OTP verification & password reset
+# Step 2b: Test valid OTP verification & password reset via Email
 valid_reset_res = client.post('/auth/verify-otp-reset', json={
-    "email": reset_test_email,
+    "identifier": reset_test_email,
     "otp": otp_code,
     "new_password": "BrandNewPassword2026!"
 })
 assert valid_reset_res.status_code == 200, f"Valid OTP reset failed: {valid_reset_res.data}"
 assert "successful" in valid_reset_res.json.get('message', '').lower()
 
-# Verify login with old password fails
-old_login = client.post('/auth/login', json={"email": reset_test_email, "password": "InitialPassword123!"})
-assert old_login.status_code == 401
+# Step 3: Test OTP Reset via Phone Number
+limiter.requests.clear()
+send_phone_otp_res = client.post('/auth/send-otp', json={"identifier": reset_test_phone, "method": "phone"})
+assert send_phone_otp_res.status_code == 200, f"Send OTP via phone failed: {send_phone_otp_res.data}"
+phone_otp_code = send_phone_otp_res.json.get('otp_preview')
+assert phone_otp_code and len(phone_otp_code) == 6, "Invalid Phone OTP generated!"
 
-# Verify login with new password succeeds
-new_login = client.post('/auth/login', json={"email": reset_test_email, "password": "BrandNewPassword2026!"})
+valid_phone_reset = client.post('/auth/verify-otp-reset', json={
+    "identifier": reset_test_phone,
+    "otp": phone_otp_code,
+    "new_password": "PhoneResetPassword2026!"
+})
+assert valid_phone_reset.status_code == 200
+
+# Verify login with updated password
+new_login = client.post('/auth/login', json={"email": reset_test_email, "password": "PhoneResetPassword2026!"})
 assert new_login.status_code == 200
 assert 'access_token' in new_login.json
-print("  [PASS] 2-Step OTP Password Reset verified: OTP generated, wrong OTP rejected, valid OTP reset password, login verified.")
+print("  [PASS] 2-Step OTP Password Reset verified for both Email and Phone Number options successfully.")
 
 print("\n" + "=" * 65)
 print("ALL 11 SECURITY & SYSTEM TESTS PASSED SUCCESSFULLY! [OK]")

@@ -19,13 +19,16 @@ interface AuthFormProps {
 
 type AuthMode = 'login' | 'register' | 'forgot';
 type OtpStep = 'request_otp' | 'verify_otp';
+type OtpMethod = 'email' | 'phone';
 
 const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [otpStep, setOtpStep] = useState<OtpStep>('request_otp');
+  const [otpMethod, setOtpMethod] = useState<OtpMethod>('email');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     otp: '',
     password: '',
     confirmPassword: '',
@@ -42,8 +45,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!formData.email) {
-      setError('Please enter your registered email address first.');
+    const identifier = otpMethod === 'email' ? formData.email.trim() : formData.phone.trim();
+    if (!identifier) {
+      setError(otpMethod === 'email' ? 'Please enter your registered Email Address.' : 'Please enter your registered Phone Number.');
       return;
     }
     setLoading(true);
@@ -51,9 +55,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     setNotice(null);
 
     try {
-      const res = await sendOtp(formData.email);
+      const res = await sendOtp({
+        identifier: identifier,
+        method: otpMethod
+      });
       setOtpStep('verify_otp');
-      setNotice(res.message || `A 6-digit OTP has been sent to ${formData.email}.`);
+      setNotice(res.message || `A 6-digit OTP code has been dispatched to ${identifier}.`);
       if (res.otp_preview) {
         setDemoOtp(res.otp_preview);
       }
@@ -82,6 +89,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         const registerData: RegisterRequest = {
           name: formData.name,
           email: formData.email,
+          phone: formData.phone,
           password: formData.password,
         };
         await registerUser(registerData);
@@ -101,8 +109,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             setLoading(false);
             return;
           }
+          const identifier = otpMethod === 'email' ? formData.email.trim() : formData.phone.trim();
           const verifyData: VerifyOtpResetRequest = {
+            identifier: identifier,
             email: formData.email,
+            phone: formData.phone,
             otp: formData.otp.trim(),
             new_password: formData.password,
           };
@@ -184,69 +195,160 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 {otpStep === 'request_otp' 
-                  ? 'Enter your registered email to receive a 6-digit verification code.'
-                  : `Enter the 6-digit code sent to ${formData.email} and choose a new password.`}
+                  ? 'Choose verification method and receive your 6-digit security code.'
+                  : `Enter the 6-digit OTP code sent to your ${otpMethod === 'email' ? 'Email' : 'Phone'} and set a new password.`}
               </p>
+            </div>
+          )}
+
+          {/* OTP Method Selector (Email vs Phone) */}
+          {authMode === 'forgot' && otpStep === 'request_otp' && (
+            <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-cyan-500/30 rounded-xl mb-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => { setOtpMethod('email'); setError(null); }}
+                className={`py-2 rounded-lg flex items-center justify-center space-x-1.5 transition ${
+                  otpMethod === 'email'
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>✉️</span>
+                <span>Email Address</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setOtpMethod('phone'); setError(null); }}
+                className={`py-2 rounded-lg flex items-center justify-center space-x-1.5 transition ${
+                  otpMethod === 'phone'
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>📱</span>
+                <span>Phone Number</span>
+              </button>
             </div>
           )}
 
           {/* Form */}
           <form className="space-y-4" onSubmit={handleSubmit}>
             {authMode === 'register' && (
+              <>
+                <div>
+                  <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                      👤
+                    </div>
+                    <input
+                      id="name"
+                      name="name"
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                      placeholder="e.g., Alex Johnson"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Mobile Phone Number <span className="text-slate-500 lowercase font-normal">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                      📱
+                    </div>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                      placeholder="+91 98765 43210"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Email Field (when in login, register, or forgot with email method) */}
+            {(authMode !== 'forgot' || (authMode === 'forgot' && otpMethod === 'email')) && (
               <div>
-                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Full Name
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Email Address
+                  </label>
+                  {authMode === 'forgot' && otpStep === 'verify_otp' && (
+                    <button
+                      type="button"
+                      onClick={() => { setOtpStep('request_otp'); setError(null); setNotice(null); }}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 transition"
+                    >
+                      Change Email
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    👤
+                    ✉️
                   </div>
                   <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    value={formData.name}
+                    id="email"
+                    name="email"
+                    type="email"
+                    required={authMode !== 'forgot' || (authMode === 'forgot' && otpMethod === 'email')}
+                    disabled={authMode === 'forgot' && otpStep === 'verify_otp'}
+                    value={formData.email}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
-                    placeholder="e.g., Alex Johnson"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition disabled:opacity-60"
+                    placeholder="name@example.com"
                   />
                 </div>
               </div>
             )}
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                  Email Address
-                </label>
-                {authMode === 'forgot' && otpStep === 'verify_otp' && (
-                  <button
-                    type="button"
-                    onClick={() => { setOtpStep('request_otp'); setError(null); setNotice(null); }}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 transition"
-                  >
-                    Change Email
-                  </button>
-                )}
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                  ✉️
+            {/* Phone Field (when in forgot with phone method) */}
+            {authMode === 'forgot' && otpMethod === 'phone' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Registered Phone Number
+                  </label>
+                  {otpStep === 'verify_otp' && (
+                    <button
+                      type="button"
+                      onClick={() => { setOtpStep('request_otp'); setError(null); setNotice(null); }}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 transition"
+                    >
+                      Change Number
+                    </button>
+                  )}
                 </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  disabled={authMode === 'forgot' && otpStep === 'verify_otp'}
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition disabled:opacity-60"
-                  placeholder="name@example.com"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                    📱
+                  </div>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    required={otpMethod === 'phone'}
+                    disabled={otpStep === 'verify_otp'}
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition disabled:opacity-60"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* OTP Input in Verify Step */}
             {authMode === 'forgot' && otpStep === 'verify_otp' && (
@@ -382,7 +484,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   : authMode === 'register'
                   ? 'Create Free Account'
                   : otpStep === 'request_otp'
-                  ? 'Send 6-Digit OTP Code'
+                  ? `Send 6-Digit OTP Code via ${otpMethod === 'email' ? 'Email' : 'SMS'}`
                   : 'Verify OTP & Set New Password'
               )}
             </button>
@@ -415,5 +517,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 };
 
 export default AuthForm;
+
 
 

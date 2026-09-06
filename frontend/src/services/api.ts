@@ -51,6 +51,7 @@ export interface PredictionResponse {
 export interface RegisterRequest {
   name: string;
   email: string;
+  phone?: string;
   password: string;
 }
 
@@ -59,20 +60,32 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface SendOtpRequest {
+  identifier: string;
+  method?: 'email' | 'phone';
+}
+
 export interface SendOtpResponse {
   message: string;
+  target?: string;
+  method?: string;
   otp_preview?: string;
+  identifier?: string;
   expires_in_seconds?: number;
 }
 
 export interface VerifyOtpResetRequest {
-  email: string;
+  identifier?: string;
+  email?: string;
+  phone?: string;
   otp: string;
   new_password: string;
 }
 
 export interface ResetPasswordRequest {
-  email: string;
+  identifier?: string;
+  email?: string;
+  phone?: string;
   new_password: string;
   otp?: string;
 }
@@ -82,6 +95,7 @@ export interface AuthResponse {
   user: {
     name: string;
     email: string;
+    phone?: string;
     role: 'admin' | 'user';
   };
 }
@@ -135,8 +149,9 @@ export const loginUser = async (data: LoginRequest): Promise<AuthResponse> => {
   return response.data;
 };
 
-export const sendOtp = async (email: string): Promise<SendOtpResponse> => {
-  const response = await api.post('/auth/send-otp', { email });
+export const sendOtp = async (params: string | SendOtpRequest): Promise<SendOtpResponse> => {
+  const payload = typeof params === 'string' ? { identifier: params, method: 'email' } : params;
+  const response = await api.post('/auth/send-otp', payload);
   return response.data;
 };
 
