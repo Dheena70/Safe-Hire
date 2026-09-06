@@ -1,6 +1,8 @@
 # ============================================================================
-# MEMORY & THREAD FIX - MUST BE AT THE VERY TOP, BEFORE ANY OTHER IMPORTS
+# SAFE HIRE - SECURE APPLICATION BACKEND
+# Hardened Full-Stack AI & Company Legitimacy Verification API
 # ============================================================================
+
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -9,8 +11,12 @@ os.environ['MKL_NUM_THREADS'] = '1'
 
 import re
 import json
+import time
+import secrets
+import logging
 import threading
 import tempfile
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -33,7 +39,19 @@ from scipy.sparse import hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler
 
-# Base directory paths
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('SafeHireSecurity')
+
+# ============================================================================
+# BASE DIRECTORY & ENVIRONMENT CONFIGURATION
+# ============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend', 'build'))
 MODELS_DIR = os.path.join(BASE_DIR, '..', 'ml_models')
@@ -42,40 +60,208 @@ USERS_FILE = os.path.join(BASE_DIR, 'users.json')
 PREDICTIONS_FILE = os.path.join(BASE_DIR, 'predictions.json')
 VISITORS_FILE = os.path.join(BASE_DIR, 'visitors.json')
 
-# Load environment variables
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
+# Flask Application Initialization
 app = Flask(
     __name__,
     static_folder=FRONTEND_BUILD_DIR,
     static_url_path=''
 )
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'safe-hire-production-auto-secure-jwt-key-2026-dheena')
+
+# Request size limit (2 MB max payload to prevent Denial of Service)
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
+
+# ============================================================================
+# SECRETS MANAGEMENT & CRYPTOGRAPHIC CONFIGURATION
+# ============================================================================
+# Enforce or generate cryptographically secure random secret key
+configured_jwt_secret = os.getenv('JWT_SECRET_KEY', '').strip()
+if not configured_jwt_secret or configured_jwt_secret.startswith('replace-') or configured_jwt_secret == 'secret':
+    # Generate an ephemeral high-entropy 256-bit random key for security
+    app.config['JWT_SECRET_KEY'] = secrets.token_hex(32)
+    logger.warning("No secure JWT_SECRET_KEY found in environment. Generated dynamic 256-bit ephemeral secret.")
+else:
+    app.config['JWT_SECRET_KEY'] = configured_jwt_secret
+
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
+app.config['JWT_HEADER_NAME'] = 'Authorization'
+app.config['JWT_HEADER_TYPE'] = 'Bearer'
 jwt = JWTManager(app)
 
-# Allowed admin emails (defaults include user's admin email)
+# ============================================================================
+# ACCESS CONTROL & ROLE DEFINITIONS
+# ============================================================================
+raw_admin_emails = os.getenv('ADMIN_EMAILS', '').strip()
 ADMIN_EMAILS = {
     email.strip().lower()
-    for email in os.getenv('ADMIN_EMAILS', 'rdheena0509@gmail.com,admin@example.com').split(',')
-    if email.strip()
-}
+    for email in raw_admin_emails.split(',')
+    if email.strip() and '@' in email
+} if raw_admin_emails else set()
 
 def resolve_role(user):
-    """Determine role based on ADMIN_EMAILS or record"""
+    """Determine role based on verified email or record"""
     if not user:
         return 'user'
-    if user.get('email', '').lower() in ADMIN_EMAILS:
+    user_email = user.get('email', '').lower().strip()
+    if user_email and user_email in ADMIN_EMAILS:
         return 'admin'
     return user.get('role', 'user')
 
-# Enable CORS for frontend
-CORS(app)
+# ============================================================================
+# CORS CONFIGURATION
+# ============================================================================
+allowed_origins_env = os.getenv('ALLOWED_ORIGINS', '').strip()
+if allowed_origins_env and allowed_origins_env != '*':
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(',') if o.strip()]
+    CORS(app, origins=allowed_origins, supports_credentials=True)
+else:
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Threading locks for data safety
+# Threading locks for atomic data persistence
 users_lock = threading.Lock()
 predictions_lock = threading.Lock()
 visitors_lock = threading.Lock()
+
+# ============================================================================
+# IN-MEMORY SLIDING-WINDOW RATE LIMITER
+# ============================================================================
+class RateLimiter:
+    """Thread-safe sliding-window in-memory rate limiter"""
+    def __init__(self):
+        self.requests = defaultdict(list)
+        self.lock = threading.Lock()
+
+    def is_allowed(self, key: str, max_requests: int, window_seconds: int = 60) -> bool:
+        now = time.time()
+        with self.lock:
+            # Purge entries older than window
+            cutoff = now - window_seconds
+            self.requests[key] = [t for t in self.requests[key] if t > cutoff]
+            if len(self.requests[key]) >= max_requests:
+                return False
+            self.requests[key].append(now)
+            return True
+
+limiter = RateLimiter()
+
+def get_client_ip() -> str:
+    """Safely obtain client IP address handling reverse proxies"""
+    forwarded = request.headers.get('X-Forwarded-For')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr or '127.0.0.1'
+
+def apply_rate_limit(max_requests: int, window_seconds: int = 60):
+    """Check rate limit for current endpoint by client IP"""
+    ip = get_client_ip()
+    key = f"{request.endpoint}:{ip}"
+    if not limiter.is_allowed(key, max_requests, window_seconds):
+        return jsonify({
+            "error": "Too many requests. Please wait a moment before trying again.",
+            "retry_after_seconds": window_seconds
+        }), 429
+    return None
+
+# ============================================================================
+# SECURITY HTTP HEADERS HOOK
+# ============================================================================
+@app.after_request
+def apply_security_headers(response):
+    """Inject defense-in-depth HTTP security headers on all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=(), payment=()'
+    
+    # Content Security Policy (allows self, React scripts, Google fonts, and inline styles for Tailwind)
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https: http:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self';"
+    )
+    
+    # HSTS if HTTPS
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+    return response
+
+# ============================================================================
+# CENTRALIZED ERROR HANDLERS
+# ============================================================================
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({"error": "Bad request. Please check your input parameters."}), 400
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Resource not found."}), 404
+
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({"error": "Method not allowed for this endpoint."}), 405
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    return jsonify({"error": "Payload too large. Maximum allowed size is 2MB."}), 413
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({"error": "Rate limit exceeded. Please slow down."}), 429
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    logger.error(f"Internal server error: {e}")
+    return jsonify({"error": "An internal server error occurred."}), 500
+
+@jwt.unauthorized_loader
+def unauthorized_callback(msg):
+    return jsonify({"error": "Authentication token required."}), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(msg):
+    return jsonify({"error": "Invalid authentication token."}), 401
+
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    return jsonify({"error": "Authentication token has expired. Please sign in again."}), 401
+
+# ============================================================================
+# INPUT VALIDATION HELPERS
+# ============================================================================
+EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
+CIN_REGEX = re.compile(r'^[LUu][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$')
+
+def sanitize_text(val: str, max_len: int = 500) -> str:
+    """Strip and constrain string inputs"""
+    if not val or not isinstance(val, str):
+        return ""
+    return val.strip()[:max_len]
+
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """Validate password length and basic complexity"""
+    if not password or not isinstance(password, str):
+        return False, "Password is required."
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if len(password) > 128:
+        return False, "Password cannot exceed 128 characters."
+    
+    # Check for trivial common passwords
+    common_weak = {'password', '12345678', 'password123', 'admin123', 'qwerty123', 'safehire123'}
+    if password.lower() in common_weak:
+        return False, "Password is too common and easily guessable."
+    
+    return True, ""
 
 # Download NLTK data safely
 NLTK_READY = True
@@ -86,24 +272,30 @@ for resource in ['punkt', 'stopwords', 'wordnet']:
         try:
             nltk.download(resource, quiet=True)
         except Exception as e:
-            print(f"WARNING: could not download NLTK '{resource}' ({type(e).__name__}). Falling back.")
+            logger.warning(f"Could not download NLTK '{resource}' ({type(e).__name__}). Falling back.")
             NLTK_READY = False
 
 # ============================================================================
 # ATOMIC JSON STORAGE HELPERS
 # ============================================================================
 def atomic_save_json(filepath, data):
-    """Thread-safe and atomic file persistence using a temp file"""
+    """Thread-safe and atomic file persistence using a temp file with strict permissions"""
     try:
         dir_name = os.path.dirname(filepath)
         with tempfile.NamedTemporaryFile('w', dir=dir_name, delete=False, encoding='utf-8') as tf:
             json.dump(data, tf, indent=2, default=str)
             temp_name = tf.name
-        # Atomic rename/replace
+        
+        # Set file permissions to owner read/write only where supported
+        try:
+            os.chmod(temp_name, 0o600)
+        except Exception:
+            pass
+
         os.replace(temp_name, filepath)
         return True
     except Exception as e:
-        print(f"ERROR saving {filepath}: {e}")
+        logger.error(f"Error saving {filepath}: {e}")
         return False
 
 def load_json_safe(filepath, default_val):
@@ -114,7 +306,7 @@ def load_json_safe(filepath, default_val):
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"WARNING reading {filepath}: {e}")
+        logger.warning(f"Warning reading {filepath}: {e}")
         return default_val
 
 # ============================================================================
@@ -141,13 +333,13 @@ def load_scam_database():
                 name = str(row.get('company_name', '')).strip().lower()
                 if name:
                     SCAM_COMPANIES_DB[name] = {
-                        'reason': str(row.get('reason', 'Reported fake job offers')),
-                        'category': str(row.get('category', 'Employment Scam')),
-                        'reported_date': str(row.get('reported_date', 'Unknown'))
+                        'reason': sanitize_text(str(row.get('reason', 'Reported fake job offers')), 200),
+                        'category': sanitize_text(str(row.get('category', 'Employment Scam')), 100),
+                        'reported_date': sanitize_text(str(row.get('reported_date', 'Unknown')), 50)
                     }
-            print(f"[OK] Loaded {len(SCAM_COMPANIES_DB)} known scam companies from database")
+            logger.info(f"Loaded {len(SCAM_COMPANIES_DB)} known scam companies from database.")
     except Exception as e:
-        print(f"WARNING: Could not load scam database ({e})")
+        logger.warning(f"Could not load scam database ({e})")
 
 def check_scam_database(company_name):
     """Check if company name matches known fraudulent company listings"""
@@ -155,11 +347,9 @@ def check_scam_database(company_name):
         return None
 
     clean_input = company_name.lower().strip()
-    # Exact match
     if clean_input in SCAM_COMPANIES_DB:
         return SCAM_COMPANIES_DB[clean_input]
 
-    # Clean input tokens without punctuation
     input_tokens = set(re.findall(r'[a-z0-9]+', clean_input)) - GENERIC_CORP_SUFFIXES
     if not input_tokens:
         return None
@@ -175,7 +365,7 @@ def load_company_databases():
     """Load Tamil Nadu and MCA company registries with CIN mapping"""
     global TN_COMPANY_NAMES, TN_CIN_MAP
     try:
-        # 1. Load sample MCA dataset for major multi-state corporate CINs
+        # 1. Load sample MCA dataset
         mca_csv_path = os.path.join(DATASETS_DIR, 'sample_mca_companies.csv')
         if os.path.exists(mca_csv_path):
             df_mca = pd.read_csv(mca_csv_path, on_bad_lines='skip')
@@ -187,12 +377,11 @@ def load_company_databases():
                 if cin:
                     TN_CIN_MAP[cin] = cname
 
-        # 2. Load Tamil Nadu large registry
+        # 2. Load Tamil Nadu registry
         tn_csv_path = os.path.join(DATASETS_DIR, 'tamil_nadu_companies.csv')
         if os.path.exists(tn_csv_path):
-            print(f"Loading company registry from {os.path.basename(tn_csv_path)}...")
+            logger.info(f"Loading company registry from {os.path.basename(tn_csv_path)}...")
             df = pd.read_csv(tn_csv_path, low_memory=False, on_bad_lines='skip')
-            
             cin_col = 'CIN' if 'CIN' in df.columns else None
             name_col = 'Company Name' if 'Company Name' in df.columns else df.columns[0]
 
@@ -204,13 +393,13 @@ def load_company_databases():
                     if cin_val and cin_val != 'NAN':
                         TN_CIN_MAP[cin_val] = name
 
-            print(f"[OK] Loaded {len(TN_COMPANY_NAMES)} registered companies ({len(TN_CIN_MAP)} with CIN)")
+            logger.info(f"Loaded {len(TN_COMPANY_NAMES)} registered companies ({len(TN_CIN_MAP)} with CIN).")
             return True
         else:
-            print("WARNING: Company registry file not found.")
+            logger.warning("Company registry file not found.")
             return False
     except Exception as e:
-        print(f"WARNING: Could not load company registry ({e}). Registry checks disabled.")
+        logger.warning(f"Could not load company registry ({e}). Registry checks disabled.")
         return False
 
 def check_cin_registry(cin):
@@ -221,8 +410,7 @@ def check_cin_registry(cin):
     if clean_cin in TN_CIN_MAP:
         return True, TN_CIN_MAP[clean_cin]
     
-    # Check if format matches valid 21-character alphanumeric MCA pattern
-    if re.match(r'^[LUu][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$', clean_cin):
+    if CIN_REGEX.match(clean_cin):
         return 'UNVERIFIED_REGIONAL', None
     
     return False, None
@@ -233,12 +421,9 @@ def check_tamil_nadu_registry(company_name):
         return None
 
     normalized_name = company_name.lower().strip()
-
-    # Exact full match
     if normalized_name in TN_COMPANY_NAMES:
         return True
 
-    # Token match protection - remove generic corporate suffixes
     tokens = [t for t in re.findall(r'[a-z0-9]+', normalized_name) if t not in GENERIC_CORP_SUFFIXES]
     if len(tokens) >= 2:
         token_phrase = ' '.join(tokens)
@@ -291,7 +476,7 @@ class JobFraudDetector:
         self.load_models()
 
     def load_models(self):
-        """Load trained ML models from ml_models directory"""
+        """Load trained ML models safely from ml_models directory"""
         try:
             tfidf_path = os.path.join(MODELS_DIR, 'tfidf_vectorizer.joblib')
             scaler_path = os.path.join(MODELS_DIR, 'scaler.joblib')
@@ -308,17 +493,17 @@ class JobFraudDetector:
                 self.scaler = joblib.load(scaler_path)
                 self.logistic_model = joblib.load(lr_path)
                 self.rf_model = joblib.load(rf_path)
-                print("[OK] ML models (TF-IDF, Scaler, Logistic Regression, Random Forest) loaded successfully!")
+                logger.info("ML models (TF-IDF, Scaler, Logistic Regression, Random Forest) loaded successfully.")
             else:
-                print("INFO: ML model files not yet trained. Run python train_models.py to enable ML scoring.")
+                logger.info("ML model files not yet trained. Using heuristic mode.")
         except Exception as e:
-            print(f"WARNING: Could not load ML models ({type(e).__name__}: {e}). Using heuristic mode.")
+            logger.warning(f"Could not load ML models ({type(e).__name__}: {e}). Using heuristic mode.")
 
     def preprocess_text(self, text):
-        """Clean and normalize textual content"""
+        """Clean and normalize textual content safely with bounded length"""
         if not text or not isinstance(text, str):
             return ""
-        text = text.lower()
+        text = text[:5000].lower()
         text = re.sub(r'[^a-zA-Z\s]', ' ', text)
         words = text.split()
         if self.stop_words:
@@ -328,7 +513,7 @@ class JobFraudDetector:
         return ' '.join(words)
 
     def extract_features(self, company_name, title, description, email='', website=''):
-        """Extract structured features for heuristic and ML scoring (email & website are optional)"""
+        """Extract structured features for heuristic and ML scoring (bounded and sanitized)"""
         features = {}
 
         clean_desc = self.preprocess_text(description)
@@ -344,7 +529,7 @@ class JobFraudDetector:
         features['title_length'] = len(str(title or ''))
         features['company_name_length'] = len(str(company_name or ''))
 
-        # Free email provider check (Only evaluated if email is provided)
+        # Free email provider check
         free_domains = {'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'rediff.com', 'aol.com', 'mail.com'}
         email_str = str(email or '').strip().lower()
         if email_str and '@' in email_str:
@@ -352,7 +537,7 @@ class JobFraudDetector:
             features['is_free_email'] = 1 if domain in free_domains else 0
             features['email_provided'] = 1
         else:
-            features['is_free_email'] = 0  # Neutral when omitted
+            features['is_free_email'] = 0
             features['email_provided'] = 0
 
         # Website check
@@ -360,13 +545,13 @@ class JobFraudDetector:
         has_web = 1 if web_str and web_str not in {'none', 'null', 'n/a', ''} else 0
         features['has_website'] = has_web
 
-        # Domain mismatch check (Only evaluated if BOTH email and website are provided)
+        # Domain mismatch check
         if features['email_provided'] and has_web:
             email_domain = email_str.split('@')[-1].strip()
             clean_web = web_str.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].strip()
             features['domain_mismatch'] = 0 if (email_domain in clean_web or clean_web in email_domain) else 1
         else:
-            features['domain_mismatch'] = 0  # Neutral when omitted
+            features['domain_mismatch'] = 0
 
         # Generic company check
         generic_patterns = {'consulting', 'services', 'solutions', 'technologies', 'global', 'hub', 'centre', 'enterprises'}
@@ -390,9 +575,8 @@ class JobFraudDetector:
             score += 8
             reasons.append(f"Company matches known fraudulent records: {scam_match['reason']}")
 
-        # 2. CIN (Corporate Identification Number) verification
+        # 2. CIN verification
         if cin_status is True:
-            # Check name consistency
             c_clean = company_name.lower().strip()
             r_clean = (cin_registered_name or '').lower().strip()
             c_tokens = set(re.findall(r'[a-z0-9]+', c_clean)) - GENERIC_CORP_SUFFIXES
@@ -409,7 +593,7 @@ class JobFraudDetector:
         elif cin_status is False:
             reasons.append("Provided CIN does not match standard 21-character MCA CIN format")
 
-        # 3. Email diagnostics (if provided)
+        # 3. Email diagnostics
         if features.get('email_provided'):
             if features['is_free_email']:
                 score += 2
@@ -424,7 +608,7 @@ class JobFraudDetector:
         else:
             reasons.append("Contact email not provided (email domain checks skipped)")
 
-        # 4. Website diagnostics (if provided)
+        # 4. Website diagnostics
         if not features['has_website']:
             reasons.append("Company website not provided (online presence checks skipped)")
 
@@ -438,7 +622,7 @@ class JobFraudDetector:
             score += min(features['suspicious_keyword_count'], 3)
             reasons.append(f"Job description contains {features['suspicious_keyword_count']} high-risk keywords (urgent, deposit, cash, etc.)")
 
-        # 7. Regional registry check (if CIN was not verified)
+        # 7. Regional registry check
         if not cin_status:
             if is_registered is False:
                 score += 1
@@ -451,7 +635,6 @@ class JobFraudDetector:
 
     def predict_record(self, company_name, title, description, email='', website='', cin=''):
         """Main hybrid verification engine combining ML ensemble with heuristics"""
-        # Input validation: Only company_name, title, description are strictly required!
         if not all([company_name, title, description]):
             return {
                 'prediction': 'FAKE',
@@ -467,22 +650,18 @@ class JobFraudDetector:
             }
 
         try:
-            # 1. Database cross-referencing
             scam_match = check_scam_database(company_name)
             is_registered = check_tamil_nadu_registry(company_name)
             cin_status, cin_registered_name = check_cin_registry(cin) if cin else (None, None)
 
-            # 2. Extract features (handles optional email & website)
             features, combined_text = self.extract_features(company_name, title, description, email, website)
             heuristic_score, reasons = self.calculate_heuristic_score(
                 features, scam_match, is_registered, cin_status, cin_registered_name, company_name
             )
 
-            # 3. ML Model Inference (if models available)
             ml_fake_prob = None
             if self.tfidf_vectorizer and self.scaler and self.logistic_model and self.rf_model:
                 try:
-                    # Align with trained model features
                     model_feat = {
                         'suspicious_keyword_count': features['suspicious_keyword_count'],
                         'professional_keyword_count': features['professional_keyword_count'],
@@ -504,28 +683,22 @@ class JobFraudDetector:
                     rf_prob = float(self.rf_model.predict_proba(X_input)[0][1])
                     ml_fake_prob = (lr_prob * 0.4 + rf_prob * 0.6)
                 except Exception as ml_err:
-                    print(f"ML inference error: {ml_err}")
+                    logger.warning(f"ML inference warning: {ml_err}")
                     ml_fake_prob = None
 
-            # 4. Hybrid probability calculation
             if ml_fake_prob is not None:
                 heuristic_fake_prob = heuristic_score / 10.0
                 combined_fake_prob = (0.55 * ml_fake_prob) + (0.45 * heuristic_fake_prob)
             else:
                 combined_fake_prob = heuristic_score / 10.0
 
-            # Override for verified CIN
             if cin_status is True and not scam_match:
                 combined_fake_prob = min(combined_fake_prob, 0.20)
 
-            # Override for direct scam database matches
             if scam_match:
                 combined_fake_prob = max(combined_fake_prob, 0.95)
 
-            # Legitimate confidence (0.0 to 1.0)
             confidence_legitimate = round(max(0.0, min(1.0, 1.0 - combined_fake_prob)), 4)
-
-            # Final classification
             is_fake = combined_fake_prob >= 0.50
 
             if combined_fake_prob >= 0.65:
@@ -558,18 +731,18 @@ class JobFraudDetector:
                 'reasons': reasons if reasons else ['All standard verification checks passed']
             }
         except Exception as e:
-            print(f"Prediction exception: {e}")
+            logger.error(f"Prediction exception: {e}")
             return {
                 'prediction': 'REAL',
                 'probability': 0.5,
                 'risk_level': 'Medium',
                 'suspicious_score': 5,
                 'verification_status': 'MANUAL_REVIEW',
-                'scam_status': f'Error during analysis: {str(e)}',
+                'scam_status': 'Diagnostic service flagged item for review',
                 'tamil_nadu_registered': 'Unknown',
                 'cin_verified': 'Error',
                 'registered_company_name': None,
-                'reasons': ['System error during evaluation; marked for manual review']
+                'reasons': ['Automated evaluation paused; marked for manual review']
             }
 
 # Initialize Fraud Detector
@@ -585,27 +758,35 @@ predictions_collection = load_json_safe(PREDICTIONS_FILE, [])
 # API ROUTES
 # ============================================================================
 
-# Frontend build directory
-FRONTEND_BUILD_DIR = os.path.join(BASE_DIR, '..', 'frontend', 'build')
-
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_frontend(path):
-    """Serve React frontend or fallback to index.html / API status"""
-    if path != "" and os.path.exists(os.path.join(FRONTEND_BUILD_DIR, path)):
-        return send_from_directory(FRONTEND_BUILD_DIR, path)
-    if os.path.exists(os.path.join(FRONTEND_BUILD_DIR, 'index.html')):
+    """Serve React frontend static build safely or fallback to index.html / status"""
+    safe_path = os.path.normpath(path).lstrip(r'\/')
+    target_file = os.path.join(FRONTEND_BUILD_DIR, safe_path)
+    
+    # Path traversal protection: Ensure target is within FRONTEND_BUILD_DIR
+    if safe_path and os.path.exists(target_file) and target_file.startswith(FRONTEND_BUILD_DIR):
+        return send_from_directory(FRONTEND_BUILD_DIR, safe_path)
+    
+    index_file = os.path.join(FRONTEND_BUILD_DIR, 'index.html')
+    if os.path.exists(index_file):
         return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')
+    
     return jsonify({
         "message": "SAFE HIRE API is running!",
-        "version": "2.1.0",
-        "features": ["ML Ensemble", "MCA Registry", "CIN Verification", "Optional Email/Web"],
+        "version": "2.2.0",
+        "features": ["ML Ensemble", "MCA Registry", "CIN Verification", "Rate Limiting", "Security Hardening"],
         "status": "online"
     })
 
 @app.route('/api/visitors', methods=['GET', 'POST'])
 def visitors():
-    """Get or increment visitor count thread-safely"""
+    """Get or increment visitor count with rate limiting and thread safety"""
+    rate_err = apply_rate_limit(max_requests=20, window_seconds=60)
+    if rate_err:
+        return rate_err
+
     with visitors_lock:
         data = load_json_safe(VISITORS_FILE, {'count': 0})
         count = data.get('count', 0)
@@ -618,36 +799,52 @@ def visitors():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Predict if a company or job posting is legitimate or fraudulent (email & website optional)"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No JSON payload provided"}), 400
+    """Analyze company or job posting legitimacy with rate limiting & server validation"""
+    rate_err = apply_rate_limit(max_requests=30, window_seconds=60)
+    if rate_err:
+        return rate_err
 
-        # Required fields are strictly company_name, title, and description
-        required_fields = ['company_name', 'title', 'description']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({"error": f"Missing required field: {field}"}), 400
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Valid JSON payload required."}), 400
+
+        # Validate and sanitize input fields
+        company_name = sanitize_text(data.get('company_name', ''), max_len=200)
+        title = sanitize_text(data.get('title', ''), max_len=200)
+        description = sanitize_text(data.get('description', ''), max_len=5000)
+        email = sanitize_text(data.get('email', ''), max_len=150)
+        website = sanitize_text(data.get('website', ''), max_len=300)
+        cin = sanitize_text(data.get('cin', ''), max_len=30).upper()
+
+        if not company_name:
+            return jsonify({"error": "Company Name is required (max 200 characters)."}), 400
+        if not title:
+            return jsonify({"error": "Job Title is required (max 200 characters)."}), 400
+        if not description or len(description) < 5:
+            return jsonify({"error": "Job Description must be at least 5 characters (max 5000)."}), 400
+
+        if email and not EMAIL_REGEX.match(email):
+            return jsonify({"error": "Provided contact email format is invalid."}), 400
 
         result = detector.predict_record(
-            company_name=data.get('company_name', ''),
-            title=data.get('title', ''),
-            description=data.get('description', ''),
-            email=data.get('email', ''),
-            website=data.get('website', ''),
-            cin=data.get('cin', '')
+            company_name=company_name,
+            title=title,
+            description=description,
+            email=email,
+            website=website,
+            cin=cin
         )
 
         # Record prediction history
         with predictions_lock:
             record = {
                 'id': len(predictions_collection) + 1,
-                'company_name': data.get('company_name'),
-                'title': data.get('title'),
-                'email': data.get('email', ''),
-                'website': data.get('website', ''),
-                'cin': data.get('cin', ''),
+                'company_name': company_name,
+                'title': title,
+                'email': email,
+                'website': website,
+                'cin': cin,
                 'prediction': result['prediction'],
                 'probability': result['probability'],
                 'risk_level': result['risk_level'],
@@ -662,32 +859,44 @@ def predict():
 
         return jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in /predict: {e}")
+        return jsonify({"error": "An error occurred while processing the verification request."}), 500
 
 @app.route('/auth/register', methods=['POST'])
 def register():
-    """Register a new user account"""
+    """Register a new user account with rate limiting & password validation"""
+    rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
+    if rate_err:
+        return rate_err
+
     try:
-        data = request.get_json()
-        if not data or not all(k in data for k in ['name', 'email', 'password']):
-            return jsonify({"error": "Name, email, and password are required"}), 400
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Valid JSON payload required."}), 400
 
-        email = data['email'].strip().lower()
-        if not email or '@' not in email:
-            return jsonify({"error": "Valid email address is required"}), 400
+        name = sanitize_text(data.get('name', ''), max_len=100)
+        email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        password = str(data.get('password', ''))
 
-        if len(data['password']) < 6:
-            return jsonify({"error": "Password must be at least 6 characters"}), 400
+        if not name or len(name) < 2:
+            return jsonify({"error": "Full Name must be at least 2 characters."}), 400
+
+        if not email or not EMAIL_REGEX.match(email):
+            return jsonify({"error": "A valid email address is required."}), 400
+
+        valid_pw, pw_err = validate_password_strength(password)
+        if not valid_pw:
+            return jsonify({"error": pw_err}), 400
 
         with users_lock:
-            if any(u['email'].lower() == email for u in users_collection):
-                return jsonify({"error": "Email is already registered"}), 400
+            if any(u.get('email', '').lower() == email for u in users_collection):
+                return jsonify({"error": "An account with this email already exists."}), 400
 
-            hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             role = 'admin' if email in ADMIN_EMAILS else 'user'
 
             new_user = {
-                'name': data['name'].strip(),
+                'name': name,
                 'email': email,
                 'password': hashed_pw,
                 'role': role,
@@ -698,24 +907,32 @@ def register():
 
         return jsonify({"message": "Registration successful! Please sign in."})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in /auth/register: {e}")
+        return jsonify({"error": "An error occurred during account registration."}), 500
 
 @app.route('/auth/login', methods=['POST'])
 def login():
-    """Authenticate a user and return a JWT access token"""
-    try:
-        data = request.get_json()
-        if not data or not data.get('email') or not data.get('password'):
-            return jsonify({"error": "Email and password are required"}), 400
+    """Authenticate a user and return a JWT access token with brute force rate limiting"""
+    rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
+    if rate_err:
+        return rate_err
 
-        email = data['email'].strip().lower()
-        password = data['password']
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Email and password are required."}), 400
+
+        email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        password = str(data.get('password', ''))
+
+        if not email or not password:
+            return jsonify({"error": "Email and password are required."}), 400
 
         with users_lock:
-            user = next((u for u in users_collection if u['email'].lower() == email), None)
+            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
 
-        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-            return jsonify({"error": "Invalid email or password"}), 401
+        if not user or not bcrypt.checkpw(password.encode('utf-8'), user.get('password', '').encode('utf-8')):
+            return jsonify({"error": "Invalid email or password."}), 401
 
         user_role = resolve_role(user)
         access_token = create_access_token(identity=user['email'])
@@ -729,7 +946,8 @@ def login():
             }
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in /auth/login: {e}")
+        return jsonify({"error": "An error occurred during sign in."}), 500
 
 @app.route('/auth/me', methods=['GET'])
 @jwt_required()
@@ -738,10 +956,10 @@ def me():
     try:
         email = get_jwt_identity().lower()
         with users_lock:
-            user = next((u for u in users_collection if u['email'].lower() == email), None)
+            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
 
         if not user:
-            return jsonify({"error": "User not found"}), 404
+            return jsonify({"error": "User account not found."}), 404
 
         return jsonify({
             "name": user['name'],
@@ -749,19 +967,20 @@ def me():
             "role": resolve_role(user)
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in /auth/me: {e}")
+        return jsonify({"error": "An error occurred retrieving user profile."}), 500
 
 @app.route('/admin/analytics', methods=['GET'])
 @jwt_required()
 def analytics():
-    """Get comprehensive admin analytics and recent predictions"""
+    """Get comprehensive admin analytics (Restricted to Administrator role)"""
     try:
         email = get_jwt_identity().lower()
         with users_lock:
-            user = next((u for u in users_collection if u['email'].lower() == email), None)
+            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
 
-        if resolve_role(user) != 'admin':
-            return jsonify({"error": "Administrator access required"}), 403
+        if not user or resolve_role(user) != 'admin':
+            return jsonify({"error": "Administrator privileges required to access analytics."}), 403
 
         with predictions_lock:
             total = len(predictions_collection)
@@ -775,7 +994,6 @@ def analytics():
                 "low": len([p for p in predictions_collection if p.get('risk_level') == 'Low'])
             }
 
-            # Return latest 10 predictions formatted
             recent = list(reversed(predictions_collection[-10:]))
 
         return jsonify({
@@ -788,7 +1006,8 @@ def analytics():
             "recent_predictions": recent
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in /admin/analytics: {e}")
+        return jsonify({"error": "An error occurred retrieving analytics."}), 500
 
 # ============================================================================
 # APPLICATION ENTRYPOINT
@@ -796,11 +1015,10 @@ def analytics():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5050))
     host = os.environ.get('HOST', '0.0.0.0')
-    print("=" * 60)
-    print("SAFE HIRE: Fake Company & Job Detection API")
-    print("=" * 60)
-    print(f"Registered users in database: {len(users_collection)}")
-    print(f"Logged verifications in database: {len(predictions_collection)}")
-    print(f"Listening on http://{host}:{port}")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("SAFE HIRE: Secure Fake Company & Job Detection Server")
+    logger.info(f"Registered users in database: {len(users_collection)}")
+    logger.info(f"Logged verifications in database: {len(predictions_collection)}")
+    logger.info(f"Listening on http://{host}:{port}")
+    logger.info("=" * 60)
     app.run(debug=False, port=port, host=host)
