@@ -949,6 +949,43 @@ def login():
         logger.error(f"Error in /auth/login: {e}")
         return jsonify({"error": "An error occurred during sign in."}), 500
 
+@app.route('/auth/reset-password', methods=['POST'])
+def reset_password():
+    """Reset a user password securely with rate limiting & password strength checks"""
+    rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Valid JSON payload required."}), 400
+
+        email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        new_password = str(data.get('new_password', ''))
+
+        if not email or not EMAIL_REGEX.match(email):
+            return jsonify({"error": "A valid registered email address is required."}), 400
+
+        valid_pw, pw_err = validate_password_strength(new_password)
+        if not valid_pw:
+            return jsonify({"error": pw_err}), 400
+
+        with users_lock:
+            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
+            if not user:
+                return jsonify({"error": "No account found with this email address."}), 404
+
+            hashed_pw = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            user['password'] = hashed_pw
+            user['updated_at'] = datetime.now().isoformat()
+            atomic_save_json(USERS_FILE, users_collection)
+
+        return jsonify({"message": "Password reset successful! Please sign in with your new password."})
+    except Exception as e:
+        logger.error(f"Error in /auth/reset-password: {e}")
+        return jsonify({"error": "An error occurred while resetting the password."}), 500
+
 @app.route('/auth/me', methods=['GET'])
 @jwt_required()
 def me():

@@ -59,6 +59,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface ResetPasswordRequest {
+  email: string;
+  new_password: string;
+}
+
 export interface AuthResponse {
   access_token: string;
   user: {
@@ -114,6 +119,11 @@ export const registerUser = async (data: RegisterRequest): Promise<{ message: st
 
 export const loginUser = async (data: LoginRequest): Promise<AuthResponse> => {
   const response = await api.post('/auth/login', data);
+  return response.data;
+};
+
+export const resetPassword = async (data: ResetPasswordRequest): Promise<{ message: string }> => {
+  const response = await api.post('/auth/reset-password', data);
   return response.data;
 };
 

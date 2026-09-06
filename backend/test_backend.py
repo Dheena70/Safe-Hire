@@ -6,7 +6,7 @@ import sys
 os.environ['JWT_SECRET_KEY'] = 'test-security-secret-key-for-test-suite-32-chars!'
 os.environ['ADMIN_EMAILS'] = 'admin@example.com,test_admin@example.com'
 
-from app import app, detector, users_collection, predictions_collection
+from app import app, detector, users_collection, predictions_collection, limiter
 
 print("=" * 65)
 print("SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.2)")
@@ -180,6 +180,33 @@ for _ in range(10):
 assert exceeded is True, "Rate limiter did not trigger 429 on rapid requests!"
 print("  [PASS] Rate limiter triggered 429 Too Many Requests on abuse attempt.")
 
+# 11. Password Reset Flow Test
+print("\n[Test 11] Testing Password Reset Flow (/auth/reset-password)...")
+limiter.requests.clear()
+reset_test_email = f"reset_user_{os.getpid()}@example.com"
+client.post('/auth/register', json={
+    "name": "Reset Test User",
+    "email": reset_test_email,
+    "password": "InitialPassword123!"
+})
+# Reset to new password
+reset_res = client.post('/auth/reset-password', json={
+    "email": reset_test_email,
+    "new_password": "BrandNewPassword2026!"
+})
+assert reset_res.status_code == 200, f"Reset failed: {reset_res.data}"
+assert "successful" in reset_res.json.get('message', '').lower()
+
+# Verify login with old password fails
+old_login = client.post('/auth/login', json={"email": reset_test_email, "password": "InitialPassword123!"})
+assert old_login.status_code == 401
+
+# Verify login with new password succeeds
+new_login = client.post('/auth/login', json={"email": reset_test_email, "password": "BrandNewPassword2026!"})
+assert new_login.status_code == 200
+assert 'access_token' in new_login.json
+print("  [PASS] Password reset verified: Old password invalidated, new password successfully authenticated.")
+
 print("\n" + "=" * 65)
-print("ALL 10 SECURITY & SYSTEM TESTS PASSED SUCCESSFULLY! [OK]")
+print("ALL 11 SECURITY & SYSTEM TESTS PASSED SUCCESSFULLY! [OK]")
 print("=" * 65)

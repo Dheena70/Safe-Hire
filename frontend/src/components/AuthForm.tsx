@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { registerUser, loginUser, RegisterRequest, LoginRequest, AuthResponse, describeApiError } from '../services/api';
+import { registerUser, loginUser, resetPassword, RegisterRequest, LoginRequest, ResetPasswordRequest, AuthResponse, describeApiError } from '../services/api';
 import bgImage from '../assets/safe-hire-bg.png';
 import shieldLogo from '../assets/safe-hire-shield.png';
 
@@ -7,12 +7,15 @@ interface AuthFormProps {
   onAuthSuccess: (userData: AuthResponse) => void;
 }
 
+type AuthMode = 'login' | 'register' | 'forgot';
+
 const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState<RegisterRequest>({
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,15 +33,35 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     setNotice(null);
 
     try {
-      if (isLogin) {
-        const loginData = formData as LoginRequest;
+      if (authMode === 'login') {
+        const loginData: LoginRequest = {
+          email: formData.email,
+          password: formData.password,
+        };
         const response = await loginUser(loginData);
         onAuthSuccess(response);
-      } else {
-        const registerData = formData as RegisterRequest;
+      } else if (authMode === 'register') {
+        const registerData: RegisterRequest = {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        };
         await registerUser(registerData);
-        setIsLogin(true);
+        setAuthMode('login');
         setNotice('Registration successful! Please sign in with your credentials.');
+      } else if (authMode === 'forgot') {
+        if (formData.password !== formData.confirmPassword) {
+          setError('New password and confirmation password do not match.');
+          setLoading(false);
+          return;
+        }
+        const resetData: ResetPasswordRequest = {
+          email: formData.email,
+          new_password: formData.password,
+        };
+        const res = await resetPassword(resetData);
+        setAuthMode('login');
+        setNotice(res.message || 'Password reset successful! Please sign in with your new password.');
       }
     } catch (err: any) {
       setError(describeApiError(err));
@@ -78,35 +101,46 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             </p>
           </div>
 
-          {/* Mode Tabs */}
-          <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-6 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => { setIsLogin(true); setError(null); }}
-              className={`py-2 rounded-lg transition duration-200 ${
-                isLogin
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setIsLogin(false); setError(null); }}
-              className={`py-2 rounded-lg transition duration-200 ${
-                !isLogin
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
+          {/* Mode Tabs or Forgot Title */}
+          {authMode !== 'forgot' ? (
+            <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-6 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('login'); setError(null); setNotice(null); }}
+                className={`py-2 rounded-lg transition duration-200 ${
+                  authMode === 'login'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('register'); setError(null); setNotice(null); }}
+                className={`py-2 rounded-lg transition duration-200 ${
+                  authMode === 'register'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+          ) : (
+            <div className="text-center mb-6">
+              <h2 className="text-lg font-bold text-white flex items-center justify-center space-x-2">
+                <span>🔑 Reset Password</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Enter your registered email and choose a new secure password.
+              </p>
+            </div>
+          )}
 
           {/* Form */}
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {!isLogin && (
+            {authMode === 'register' && (
               <div>
                 <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                   Full Name
@@ -119,7 +153,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     id="name"
                     name="name"
                     type="text"
-                    required={!isLogin}
+                    required
                     value={formData.name}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
@@ -151,9 +185,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  {authMode === 'forgot' ? 'New Password' : 'Password'}
+                </label>
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('forgot'); setError(null); setNotice(null); }}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium transition"
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
                   🔒
@@ -166,10 +211,33 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
-                  placeholder="••••••••"
+                  placeholder="At least 8 characters"
                 />
               </div>
             </div>
+
+            {authMode === 'forgot' && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                    🔒
+                  </div>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                    placeholder="Repeat new password"
+                  />
+                </div>
+              </div>
+            )}
 
             {notice && (
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-300">
@@ -194,9 +262,25 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   <span>Processing...</span>
                 </div>
               ) : (
-                isLogin ? 'Sign In to Portal' : 'Create Free Account'
+                authMode === 'login'
+                  ? 'Sign In to Portal'
+                  : authMode === 'register'
+                  ? 'Create Free Account'
+                  : 'Update & Reset Password'
               )}
             </button>
+
+            {authMode === 'forgot' && (
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); setError(null); setNotice(null); }}
+                  className="text-xs text-slate-400 hover:text-cyan-400 transition"
+                >
+                  ← Back to Sign In
+                </button>
+              </div>
+            )}
           </form>
 
           {/* Security Features Footnote */}
@@ -214,3 +298,4 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 };
 
 export default AuthForm;
+
