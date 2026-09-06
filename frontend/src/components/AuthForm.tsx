@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   registerUser, 
   loginUser, 
@@ -25,6 +25,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [otpStep, setOtpStep] = useState<OtpStep>('request_otp');
   const [otpMethod, setOtpMethod] = useState<OtpMethod>('email');
+  const [otpCountdown, setOtpCountdown] = useState<number>(120);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -36,6 +37,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: any;
+    if (authMode === 'forgot' && otpStep === 'verify_otp' && otpCountdown > 0) {
+      timer = setInterval(() => {
+        setOtpCountdown(prev => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [authMode, otpStep, otpCountdown]);
+
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -59,6 +76,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         method: otpMethod
       });
       setOtpStep('verify_otp');
+      setOtpCountdown(120);
       setNotice(res.message || `A 6-digit OTP code has been dispatched to your ${otpMethod === 'email' ? 'Email' : 'Mobile Phone'}.`);
     } catch (err: any) {
       setError(describeApiError(err));
@@ -364,9 +382,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             {authMode === 'forgot' && otpStep === 'verify_otp' && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label htmlFor="otp" className="block text-xs font-semibold uppercase tracking-wider text-cyan-400">
-                    6-Digit Verification Code (OTP)
-                  </label>
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="otp" className="block text-xs font-semibold uppercase tracking-wider text-cyan-400">
+                      6-Digit Verification Code (OTP)
+                    </label>
+                    {otpCountdown > 0 ? (
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold">
+                        ⏱️ {formatTimer(otpCountdown)}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-300 font-bold">
+                        Expired
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleSendOtp()}
@@ -376,12 +405,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     Resend Code
                   </button>
                 </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                    </svg>
-                  </div>
+                <div>
                   <input
                     id="otp"
                     name="otp"
@@ -390,8 +414,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     required
                     value={formData.otp}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-cyan-500/60 rounded-xl text-white font-mono tracking-widest text-base placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition text-center"
-                    placeholder="123456"
+                    className="w-full px-4 py-2.5 bg-slate-950/70 border border-cyan-500/60 rounded-xl text-white font-mono tracking-[0.4em] text-xl focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition text-center"
                   />
                 </div>
               </div>

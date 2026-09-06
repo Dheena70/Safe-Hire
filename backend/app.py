@@ -996,7 +996,7 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
               <div style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 12px 24px; border-radius: 10px; letter-spacing: 6px; font-size: 26px; font-weight: 900; color: #ffffff; font-family: monospace;">
                 {otp_code}
               </div>
-              <p style="color: #64748b; font-size: 11px; margin-top: 8px;">Code expires in 10 minutes. Do not share with anyone.</p>
+              <p style="color: #64748b; font-size: 11px; margin-top: 8px;">Code expires in 2 minutes. Do not share with anyone.</p>
             </div>
             <p style="color: #94a3b8; font-size: 11px; border-top: 1px solid #1e293b; padding-top: 14px;">
               If you did not request this code, you can safely ignore this email.
@@ -1058,9 +1058,9 @@ def send_otp():
             target_type = "Phone Number" if ('@' not in identifier and any(c.isdigit() for c in identifier)) else "Email Address"
             return jsonify({"error": f"No registered account found with this {target_type}."}), 404
 
-        # Generate 6-digit numeric OTP with cryptographic entropy
+        # Generate 6-digit numeric OTP with cryptographic entropy (2 minutes validity)
         otp_val = str(secrets.randbelow(900000) + 100000)
-        expires_at = time.time() + 600  # 10 minutes validity
+        expires_at = time.time() + 120  # 2 minutes validity
 
         lookup_key = user.get('email', '').strip().lower()
 
@@ -1089,14 +1089,14 @@ def send_otp():
             masked_target = f"{parts[0][:2]}***@{parts[1]}" if len(parts) == 2 and len(parts[0]) >= 2 else lookup_key
             msg = f"A 6-digit OTP code has been dispatched to your registered Email ({masked_target})."
 
-        logger.info(f"🔐 [SECURITY OTP CODE] Dispatched for {lookup_key} ({method}): {otp_val} (Valid for 10 minutes)")
+        logger.info(f"🔐 [SECURITY OTP CODE] Dispatched for {lookup_key} ({method}): {otp_val} (Valid for 2 minutes)")
 
         return jsonify({
             "message": msg,
             "target": masked_target,
             "method": method,
             "identifier": lookup_key,
-            "expires_in_seconds": 600
+            "expires_in_seconds": 120
         })
     except Exception as e:
         logger.error(f"Error in /auth/send-otp: {e}")
@@ -1143,7 +1143,7 @@ def verify_otp_reset():
 
             if time.time() > record['expires_at']:
                 otp_store.pop(clean_id, None)
-                return jsonify({"error": "Verification code has expired. Please request a new code."}), 400
+                return jsonify({"error": "Verification code has expired (2-minute limit exceeded). Please request a new code."}), 400
 
             if record['attempts'] >= 5:
                 otp_store.pop(clean_id, None)
