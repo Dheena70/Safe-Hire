@@ -180,8 +180,8 @@ for _ in range(10):
 assert exceeded is True, "Rate limiter did not trigger 429 on rapid requests!"
 print("  [PASS] Rate limiter triggered 429 Too Many Requests on abuse attempt.")
 
-# 11. Password Reset Flow Test
-print("\n[Test 11] Testing Password Reset Flow (/auth/reset-password)...")
+# 11. 2-Step OTP Password Reset Flow Test
+print("\n[Test 11] Testing 2-Step OTP Password Reset Flow (/auth/send-otp & /auth/verify-otp-reset)...")
 limiter.requests.clear()
 reset_test_email = f"reset_user_{os.getpid()}@example.com"
 client.post('/auth/register', json={
@@ -189,13 +189,30 @@ client.post('/auth/register', json={
     "email": reset_test_email,
     "password": "InitialPassword123!"
 })
-# Reset to new password
-reset_res = client.post('/auth/reset-password', json={
+
+# Step 1: Send 6-Digit OTP
+send_otp_res = client.post('/auth/send-otp', json={"email": reset_test_email})
+assert send_otp_res.status_code == 200, f"Send OTP failed: {send_otp_res.data}"
+otp_code = send_otp_res.json.get('otp_preview')
+assert otp_code and len(otp_code) == 6 and otp_code.isdigit(), "Invalid OTP generated!"
+
+# Step 2a: Test wrong OTP rejection
+wrong_otp_res = client.post('/auth/verify-otp-reset', json={
     "email": reset_test_email,
+    "otp": "000000",
     "new_password": "BrandNewPassword2026!"
 })
-assert reset_res.status_code == 200, f"Reset failed: {reset_res.data}"
-assert "successful" in reset_res.json.get('message', '').lower()
+assert wrong_otp_res.status_code == 400, "Wrong OTP was not rejected!"
+assert "invalid" in wrong_otp_res.json.get('error', '').lower()
+
+# Step 2b: Test valid OTP verification & password reset
+valid_reset_res = client.post('/auth/verify-otp-reset', json={
+    "email": reset_test_email,
+    "otp": otp_code,
+    "new_password": "BrandNewPassword2026!"
+})
+assert valid_reset_res.status_code == 200, f"Valid OTP reset failed: {valid_reset_res.data}"
+assert "successful" in valid_reset_res.json.get('message', '').lower()
 
 # Verify login with old password fails
 old_login = client.post('/auth/login', json={"email": reset_test_email, "password": "InitialPassword123!"})
@@ -205,7 +222,7 @@ assert old_login.status_code == 401
 new_login = client.post('/auth/login', json={"email": reset_test_email, "password": "BrandNewPassword2026!"})
 assert new_login.status_code == 200
 assert 'access_token' in new_login.json
-print("  [PASS] Password reset verified: Old password invalidated, new password successfully authenticated.")
+print("  [PASS] 2-Step OTP Password Reset verified: OTP generated, wrong OTP rejected, valid OTP reset password, login verified.")
 
 print("\n" + "=" * 65)
 print("ALL 11 SECURITY & SYSTEM TESTS PASSED SUCCESSFULLY! [OK]")

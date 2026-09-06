@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { registerUser, loginUser, resetPassword, RegisterRequest, LoginRequest, ResetPasswordRequest, AuthResponse, describeApiError } from '../services/api';
+import { 
+  registerUser, 
+  loginUser, 
+  sendOtp, 
+  verifyOtpReset, 
+  RegisterRequest, 
+  LoginRequest, 
+  VerifyOtpResetRequest, 
+  AuthResponse, 
+  describeApiError 
+} from '../services/api';
 import bgImage from '../assets/safe-hire-bg.png';
 import shieldLogo from '../assets/safe-hire-shield.png';
 
@@ -8,15 +18,19 @@ interface AuthFormProps {
 }
 
 type AuthMode = 'login' | 'register' | 'forgot';
+type OtpStep = 'request_otp' | 'verify_otp';
 
 const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [otpStep, setOtpStep] = useState<OtpStep>('request_otp');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    otp: '',
     password: '',
     confirmPassword: '',
   });
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -24,6 +38,30 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!formData.email) {
+      setError('Please enter your registered email address first.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const res = await sendOtp(formData.email);
+      setOtpStep('verify_otp');
+      setNotice(res.message || `A 6-digit OTP has been sent to ${formData.email}.`);
+      if (res.otp_preview) {
+        setDemoOtp(res.otp_preview);
+      }
+    } catch (err: any) {
+      setError(describeApiError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,18 +88,30 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         setAuthMode('login');
         setNotice('Registration successful! Please sign in with your credentials.');
       } else if (authMode === 'forgot') {
-        if (formData.password !== formData.confirmPassword) {
-          setError('New password and confirmation password do not match.');
-          setLoading(false);
-          return;
+        if (otpStep === 'request_otp') {
+          await handleSendOtp();
+        } else {
+          if (!formData.otp || formData.otp.trim().length !== 6) {
+            setError('Please enter the 6-digit OTP verification code.');
+            setLoading(false);
+            return;
+          }
+          if (formData.password !== formData.confirmPassword) {
+            setError('New password and confirmation password do not match.');
+            setLoading(false);
+            return;
+          }
+          const verifyData: VerifyOtpResetRequest = {
+            email: formData.email,
+            otp: formData.otp.trim(),
+            new_password: formData.password,
+          };
+          const res = await verifyOtpReset(verifyData);
+          setAuthMode('login');
+          setOtpStep('request_otp');
+          setDemoOtp(null);
+          setNotice(res.message || 'Verification successful! Password updated. Please sign in.');
         }
-        const resetData: ResetPasswordRequest = {
-          email: formData.email,
-          new_password: formData.password,
-        };
-        const res = await resetPassword(resetData);
-        setAuthMode('login');
-        setNotice(res.message || 'Password reset successful! Please sign in with your new password.');
       }
     } catch (err: any) {
       setError(describeApiError(err));
@@ -130,10 +180,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           ) : (
             <div className="text-center mb-6">
               <h2 className="text-lg font-bold text-white flex items-center justify-center space-x-2">
-                <span>🔑 Reset Password</span>
+                <span>🔐 2-Step OTP Password Reset</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Enter your registered email and choose a new secure password.
+                {otpStep === 'request_otp' 
+                  ? 'Enter your registered email to receive a 6-digit verification code.'
+                  : `Enter the 6-digit code sent to ${formData.email} and choose a new password.`}
               </p>
             </div>
           )}
@@ -164,9 +216,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Email Address
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Email Address
+                </label>
+                {authMode === 'forgot' && otpStep === 'verify_otp' && (
+                  <button
+                    type="button"
+                    onClick={() => { setOtpStep('request_otp'); setError(null); setNotice(null); }}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 transition"
+                  >
+                    Change Email
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
                   ✉️
@@ -176,47 +239,99 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   name="email"
                   type="email"
                   required
+                  disabled={authMode === 'forgot' && otpStep === 'verify_otp'}
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition disabled:opacity-60"
                   placeholder="name@example.com"
                 />
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                  {authMode === 'forgot' ? 'New Password' : 'Password'}
-                </label>
-                {authMode === 'login' && (
+            {/* OTP Input in Verify Step */}
+            {authMode === 'forgot' && otpStep === 'verify_otp' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="otp" className="block text-xs font-semibold uppercase tracking-wider text-cyan-400">
+                    6-Digit Verification Code (OTP)
+                  </label>
                   <button
                     type="button"
-                    onClick={() => { setAuthMode('forgot'); setError(null); setNotice(null); }}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium transition"
+                    onClick={() => handleSendOtp()}
+                    disabled={loading}
+                    className="text-xs text-slate-400 hover:text-cyan-300 underline transition"
                   >
-                    Forgot Password?
+                    Resend Code
                   </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                    🔢
+                  </div>
+                  <input
+                    id="otp"
+                    name="otp"
+                    type="text"
+                    maxLength={6}
+                    required
+                    value={formData.otp}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-cyan-500/60 rounded-xl text-white font-mono tracking-widest text-base placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition"
+                    placeholder="123456"
+                  />
+                </div>
+                {demoOtp && (
+                  <div className="mt-1.5 p-2 bg-cyan-950/40 border border-cyan-500/30 rounded-lg flex items-center justify-between text-xs">
+                    <span className="text-cyan-300">Generated OTP: <strong className="font-mono tracking-wider text-white text-sm">{demoOtp}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, otp: demoOtp }))}
+                      className="px-2 py-0.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded text-[10px] transition"
+                    >
+                      Auto-Fill
+                    </button>
+                  </div>
                 )}
               </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                  🔒
-                </div>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
-                  placeholder="At least 8 characters"
-                />
-              </div>
-            </div>
+            )}
 
-            {authMode === 'forgot' && (
+            {/* Password input (for login, register, or verify_otp) */}
+            {(authMode !== 'forgot' || otpStep === 'verify_otp') && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    {authMode === 'forgot' ? 'New Password' : 'Password'}
+                  </label>
+                  {authMode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('forgot'); setOtpStep('request_otp'); setError(null); setNotice(null); }}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 font-medium transition"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+                    🔒
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                    placeholder="At least 8 characters"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Confirm Password in Verify OTP */}
+            {authMode === 'forgot' && otpStep === 'verify_otp' && (
               <div>
                 <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
                   Confirm New Password
@@ -266,7 +381,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   ? 'Sign In to Portal'
                   : authMode === 'register'
                   ? 'Create Free Account'
-                  : 'Update & Reset Password'
+                  : otpStep === 'request_otp'
+                  ? 'Send 6-Digit OTP Code'
+                  : 'Verify OTP & Set New Password'
               )}
             </button>
 
@@ -274,7 +391,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               <div className="text-center pt-2">
                 <button
                   type="button"
-                  onClick={() => { setAuthMode('login'); setError(null); setNotice(null); }}
+                  onClick={() => { setAuthMode('login'); setOtpStep('request_otp'); setError(null); setNotice(null); }}
                   className="text-xs text-slate-400 hover:text-cyan-400 transition"
                 >
                   ← Back to Sign In
@@ -298,4 +415,5 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 };
 
 export default AuthForm;
+
 

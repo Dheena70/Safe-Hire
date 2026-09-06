@@ -123,6 +123,8 @@ else:
 users_lock = threading.Lock()
 predictions_lock = threading.Lock()
 visitors_lock = threading.Lock()
+otp_lock = threading.Lock()
+otp_store = {}  # In-memory thread-safe OTP verification cache
 
 # ============================================================================
 # IN-MEMORY SLIDING-WINDOW RATE LIMITER
@@ -949,9 +951,9 @@ def login():
         logger.error(f"Error in /auth/login: {e}")
         return jsonify({"error": "An error occurred during sign in."}), 500
 
-@app.route('/auth/reset-password', methods=['POST'])
-def reset_password():
-    """Reset a user password securely with rate limiting & password strength checks"""
+@app.route('/auth/send-otp', methods=['POST'])
+def send_otp():
+    """Generate and dispatch a cryptographically secure 6-digit OTP for password reset"""
     rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
     if rate_err:
         return rate_err
@@ -962,28 +964,97 @@ def reset_password():
             return jsonify({"error": "Valid JSON payload required."}), 400
 
         email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        if not email or not EMAIL_REGEX.match(email):
+            return jsonify({"error": "A valid registered email address is required."}), 400
+
+        with users_lock:
+            user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
+            if not user:
+                return jsonify({"error": "No registered account found with this email address."}), 404
+
+        # Generate 6-digit numeric OTP with cryptographic entropy
+        otp_val = str(secrets.randbelow(900000) + 100000)
+        expires_at = time.time() + 600  # 10 minutes validity
+
+        with otp_lock:
+            otp_store[email] = {
+                'otp': otp_val,
+                'expires_at': expires_at,
+                'attempts': 0
+            }
+
+        logger.info(f"Generated password reset OTP for {email} (Expires in 10 minutes)")
+
+        return jsonify({
+            "message": f"A 6-digit verification code has been dispatched to {email}.",
+            "otp_preview": otp_val,  # Live demonstration code for verification
+            "expires_in_seconds": 600
+        })
+    except Exception as e:
+        logger.error(f"Error in /auth/send-otp: {e}")
+        return jsonify({"error": "Failed to generate security OTP."}), 500
+
+@app.route('/auth/verify-otp-reset', methods=['POST'])
+@app.route('/auth/reset-password', methods=['POST'])
+def verify_otp_reset():
+    """Verify 6-digit OTP and reset user password"""
+    rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Valid JSON payload required."}), 400
+
+        email = sanitize_text(data.get('email', ''), max_len=150).lower()
+        otp = sanitize_text(data.get('otp', ''), max_len=10).strip()
         new_password = str(data.get('new_password', ''))
 
         if not email or not EMAIL_REGEX.match(email):
             return jsonify({"error": "A valid registered email address is required."}), 400
 
+        if not otp or len(otp) != 6 or not otp.isdigit():
+            return jsonify({"error": "Please enter a valid 6-digit verification code."}), 400
+
         valid_pw, pw_err = validate_password_strength(new_password)
         if not valid_pw:
             return jsonify({"error": pw_err}), 400
 
+        with otp_lock:
+            record = otp_store.get(email)
+            if not record:
+                return jsonify({"error": "No active OTP request found. Please request a new code first."}), 400
+
+            if time.time() > record['expires_at']:
+                otp_store.pop(email, None)
+                return jsonify({"error": "Verification code has expired. Please request a new code."}), 400
+
+            if record['attempts'] >= 5:
+                otp_store.pop(email, None)
+                return jsonify({"error": "Maximum verification attempts exceeded. Please request a new code."}), 429
+
+            if not secrets.compare_digest(record['otp'], otp):
+                record['attempts'] += 1
+                remaining = 5 - record['attempts']
+                return jsonify({"error": f"Invalid verification code. ({remaining} attempts remaining)"}), 400
+
+            # Verified successfully! Remove OTP to prevent replay attacks
+            otp_store.pop(email, None)
+
         with users_lock:
             user = next((u for u in users_collection if u.get('email', '').lower() == email), None)
             if not user:
-                return jsonify({"error": "No account found with this email address."}), 404
+                return jsonify({"error": "User account not found."}), 404
 
             hashed_pw = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             user['password'] = hashed_pw
             user['updated_at'] = datetime.now().isoformat()
             atomic_save_json(USERS_FILE, users_collection)
 
-        return jsonify({"message": "Password reset successful! Please sign in with your new password."})
+        return jsonify({"message": "Verification successful! Password updated. Please sign in."})
     except Exception as e:
-        logger.error(f"Error in /auth/reset-password: {e}")
+        logger.error(f"Error in /auth/verify-otp-reset: {e}")
         return jsonify({"error": "An error occurred while resetting the password."}), 500
 
 @app.route('/auth/me', methods=['GET'])

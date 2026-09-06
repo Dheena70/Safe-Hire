@@ -59,9 +59,22 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface SendOtpResponse {
+  message: string;
+  otp_preview?: string;
+  expires_in_seconds?: number;
+}
+
+export interface VerifyOtpResetRequest {
+  email: string;
+  otp: string;
+  new_password: string;
+}
+
 export interface ResetPasswordRequest {
   email: string;
   new_password: string;
+  otp?: string;
 }
 
 export interface AuthResponse {
@@ -122,8 +135,18 @@ export const loginUser = async (data: LoginRequest): Promise<AuthResponse> => {
   return response.data;
 };
 
+export const sendOtp = async (email: string): Promise<SendOtpResponse> => {
+  const response = await api.post('/auth/send-otp', { email });
+  return response.data;
+};
+
+export const verifyOtpReset = async (data: VerifyOtpResetRequest): Promise<{ message: string }> => {
+  const response = await api.post('/auth/verify-otp-reset', data);
+  return response.data;
+};
+
 export const resetPassword = async (data: ResetPasswordRequest): Promise<{ message: string }> => {
-  const response = await api.post('/auth/reset-password', data);
+  const response = await api.post('/auth/verify-otp-reset', data);
   return response.data;
 };
 
