@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 
 import bcrypt
 import joblib
@@ -981,44 +982,70 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         logger.info(f"[DEV SERVER LOG] OTP for {to_email} -> {otp_code} (Configure SMTP in .env for real email delivery)")
         return False
     try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "🔐 SAFE HIRE - Password Reset Verification Code"
-        msg['From'] = f"SAFE HIRE Security <{smtp_from}>"
-        msg['To'] = to_email
+        msg_root = MIMEMultipart('related')
+        msg_root['Subject'] = "🔐 SAFE HIRE - Password Reset Verification Code"
+        msg_root['From'] = f"SAFE HIRE <{smtp_from}>"
+        msg_root['To'] = to_email
+
+        msg_alternative = MIMEMultipart('alternative')
+        msg_root.attach(msg_alternative)
+
+        shield_img_path = os.path.join(BASE_DIR, '..', 'frontend', 'src', 'assets', 'safe-hire-shield.png')
+        has_logo = os.path.exists(shield_img_path)
+
+        logo_html = '<img src="cid:safehire_logo" alt="SAFE HIRE Logo" style="width: 56px; height: 56px; margin: 0 auto 12px auto; display: block; object-fit: contain;" />' if has_logo else ''
 
         html_content = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; background-color: #020617; color: #f8fafc; padding: 25px;">
-          <div style="max-width: 480px; margin: 0 auto; background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #38bdf8; margin: 0; font-size: 22px; font-weight: 800;">SAFE HIRE</h2>
-              <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Recruitment Fraud & Scam Defense</p>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #020617; color: #f8fafc; padding: 30px 15px; margin: 0;">
+          <div style="max-width: 480px; margin: 0 auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 18px; padding: 32px 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); text-align: center;">
+            <div style="margin-bottom: 24px;">
+              {logo_html}
+              <h2 style="color: #38bdf8; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 0.5px;">SAFE HIRE</h2>
+              <p style="color: #64748b; font-size: 12px; margin-top: 5px; font-weight: 500;">AI Company & Recruitment Fraud Defense</p>
             </div>
-            <h3 style="color: #ffffff; font-size: 16px; margin-bottom: 10px;">Password Reset Verification Code</h3>
-            <p style="color: #cbd5e1; font-size: 13px; line-height: 1.5;">
-              You requested to reset your SAFE HIRE password. Use the 6-digit code below:
-            </p>
-            <div style="text-align: center; margin: 24px 0;">
-              <div style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 12px 24px; border-radius: 10px; letter-spacing: 6px; font-size: 26px; font-weight: 900; color: #ffffff; font-family: monospace;">
+            
+            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+              <h3 style="color: #f1f5f9; font-size: 15px; margin: 0 0 10px 0; font-weight: 600;">Password Reset Verification</h3>
+              <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0;">
+                You requested to reset your account password. Enter this verification code to proceed:
+              </p>
+              
+              <div style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 14px 28px; border-radius: 12px; letter-spacing: 8px; font-size: 30px; font-weight: 900; color: #ffffff; font-family: 'Courier New', monospace; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.35);">
                 {otp_code}
               </div>
-              <p style="color: #64748b; font-size: 11px; margin-top: 8px;">Code expires in 2 minutes. Do not share with anyone.</p>
+              
+              <p style="color: #38bdf8; font-size: 12px; margin: 16px 0 0 0; font-weight: 600;">
+                ⏱️ Valid for 2 minutes only
+              </p>
             </div>
-            <p style="color: #94a3b8; font-size: 11px; border-top: 1px solid #1e293b; padding-top: 14px;">
-              If you did not request this code, you can safely ignore this email.
+            
+            <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.4; border-top: 1px solid #1e293b; padding-top: 16px;">
+              If you did not request this password reset, please ignore this email.<br />
+              &copy; 2026 SAFE HIRE Security System. All rights reserved.
             </p>
           </div>
         </body>
         </html>
         """
-        msg.attach(MIMEText(html_content, 'html'))
+        msg_alternative.attach(MIMEText(html_content, 'html'))
+
+        if has_logo:
+            try:
+                with open(shield_img_path, 'rb') as f:
+                    img = MIMEImage(f.read())
+                    img.add_header('Content-ID', '<safehire_logo>')
+                    img.add_header('Content-Disposition', 'inline', filename='safe-hire-shield.png')
+                    msg_root.attach(img)
+            except Exception as img_err:
+                logger.warning(f"Could not attach inline logo image: {img_err}")
 
         server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
         server.starttls()
         server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_from, [to_email], msg.as_string())
+        server.sendmail(smtp_from, [to_email], msg_root.as_string())
         server.quit()
-        logger.info(f"Successfully sent real verification email to {to_email}")
+        logger.info(f"Successfully sent real verification email with logo to {to_email}")
         return True
     except Exception as e:
         logger.error(f"Failed to dispatch email to {to_email} via SMTP: {e}")
