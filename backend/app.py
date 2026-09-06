@@ -18,6 +18,9 @@ import threading
 import tempfile
 from collections import defaultdict
 from datetime import datetime, timedelta
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 import bcrypt
 import joblib
@@ -960,6 +963,61 @@ def normalize_phone(phone: str) -> str:
     cleaned = re.sub(r'[\s\-\(\)]', '', phone.strip())
     return cleaned
 
+SMTP_SERVER = os.getenv('SMTP_SERVER', '').strip()
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_USERNAME = os.getenv('SMTP_USERNAME', '').strip()
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '').strip()
+SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', SMTP_USERNAME or 'noreply@safehire.ai').strip()
+
+def send_email_otp(to_email: str, otp_code: str) -> bool:
+    """Send HTML verification OTP to user's real email inbox via SMTP if configured"""
+    if not SMTP_SERVER or not SMTP_USERNAME or not SMTP_PASSWORD:
+        logger.info(f"[DEV SERVER LOG] OTP for {to_email} -> {otp_code} (Configure SMTP in .env for real email delivery)")
+        return False
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "🔐 SAFE HIRE - Password Reset Verification Code"
+        msg['From'] = f"SAFE HIRE Security <{SMTP_FROM_EMAIL}>"
+        msg['To'] = to_email
+
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #020617; color: #f8fafc; padding: 25px;">
+          <div style="max-width: 480px; margin: 0 auto; background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #38bdf8; margin: 0; font-size: 22px; font-weight: 800;">SAFE HIRE</h2>
+              <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Recruitment Fraud & Scam Defense</p>
+            </div>
+            <h3 style="color: #ffffff; font-size: 16px; margin-bottom: 10px;">Password Reset Verification Code</h3>
+            <p style="color: #cbd5e1; font-size: 13px; line-height: 1.5;">
+              You requested to reset your SAFE HIRE password. Use the 6-digit code below:
+            </p>
+            <div style="text-align: center; margin: 24px 0;">
+              <div style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 12px 24px; border-radius: 10px; letter-spacing: 6px; font-size: 26px; font-weight: 900; color: #ffffff; font-family: monospace;">
+                {otp_code}
+              </div>
+              <p style="color: #64748b; font-size: 11px; margin-top: 8px;">Code expires in 10 minutes. Do not share with anyone.</p>
+            </div>
+            <p style="color: #94a3b8; font-size: 11px; border-top: 1px solid #1e293b; padding-top: 14px;">
+              If you did not request this code, you can safely ignore this email.
+            </p>
+          </div>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(html_content, 'html'))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        server.sendmail(SMTP_FROM_EMAIL, [to_email], msg.as_string())
+        server.quit()
+        logger.info(f"Successfully sent real verification email to {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to dispatch email to {to_email} via SMTP: {e}")
+        return False
+
 @app.route('/auth/send-otp', methods=['POST'])
 def send_otp():
     """Generate and dispatch a cryptographically secure 6-digit OTP for Email or Phone"""
@@ -997,7 +1055,6 @@ def send_otp():
                     break
 
         if not user:
-            # If user not found by phone/email specifically, provide helpful error
             target_type = "Phone Number" if ('@' not in identifier and any(c.isdigit() for c in identifier)) else "Email Address"
             return jsonify({"error": f"No registered account found with this {target_type}."}), 404
 
@@ -1018,6 +1075,10 @@ def send_otp():
             if user.get('phone'):
                 otp_store[normalize_phone(user['phone'])] = otp_store[lookup_key]
 
+        # Dispatch via Email (if email method or user has email)
+        if '@' in lookup_key:
+            send_email_otp(lookup_key, otp_val)
+
         masked_target = lookup_key
         if method == 'phone' or ('@' not in identifier and any(c.isdigit() for c in identifier)):
             raw_phone = user.get('phone') or identifier
@@ -1028,13 +1089,12 @@ def send_otp():
             masked_target = f"{parts[0][:2]}***@{parts[1]}" if len(parts) == 2 and len(parts[0]) >= 2 else lookup_key
             msg = f"A 6-digit OTP code has been dispatched to your registered Email ({masked_target})."
 
-        logger.info(f"Generated password reset OTP for user {lookup_key} via {method} (Expires in 10 mins)")
+        logger.info(f"🔐 [SECURITY OTP CODE] Dispatched for {lookup_key} ({method}): {otp_val} (Valid for 10 minutes)")
 
         return jsonify({
             "message": msg,
             "target": masked_target,
             "method": method,
-            "otp_preview": otp_val,  # Live demonstration code
             "identifier": lookup_key,
             "expires_in_seconds": 600
         })

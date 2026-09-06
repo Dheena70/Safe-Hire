@@ -6,7 +6,7 @@ import sys
 os.environ['JWT_SECRET_KEY'] = 'test-security-secret-key-for-test-suite-32-chars!'
 os.environ['ADMIN_EMAILS'] = 'admin@example.com,test_admin@example.com'
 
-from app import app, detector, users_collection, predictions_collection, limiter
+from app import app, detector, users_collection, predictions_collection, limiter, otp_store, normalize_phone
 
 print("=" * 65)
 print("SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.2)")
@@ -195,8 +195,8 @@ client.post('/auth/register', json={
 # Step 1: Send 6-Digit OTP via Email
 send_otp_res = client.post('/auth/send-otp', json={"identifier": reset_test_email, "method": "email"})
 assert send_otp_res.status_code == 200, f"Send OTP via email failed: {send_otp_res.data}"
-otp_code = send_otp_res.json.get('otp_preview')
-assert otp_code and len(otp_code) == 6 and otp_code.isdigit(), "Invalid OTP generated!"
+otp_code = otp_store.get(reset_test_email.lower(), {}).get('otp')
+assert otp_code and len(otp_code) == 6 and otp_code.isdigit(), "Invalid OTP generated in secure store!"
 
 # Step 2a: Test wrong OTP rejection
 wrong_otp_res = client.post('/auth/verify-otp-reset', json={
@@ -220,8 +220,9 @@ assert "successful" in valid_reset_res.json.get('message', '').lower()
 limiter.requests.clear()
 send_phone_otp_res = client.post('/auth/send-otp', json={"identifier": reset_test_phone, "method": "phone"})
 assert send_phone_otp_res.status_code == 200, f"Send OTP via phone failed: {send_phone_otp_res.data}"
-phone_otp_code = send_phone_otp_res.json.get('otp_preview')
-assert phone_otp_code and len(phone_otp_code) == 6, "Invalid Phone OTP generated!"
+norm_phone = normalize_phone(reset_test_phone)
+phone_otp_code = otp_store.get(norm_phone, {}).get('otp')
+assert phone_otp_code and len(phone_otp_code) == 6, "Invalid Phone OTP generated in secure store!"
 
 valid_phone_reset = client.post('/auth/verify-otp-reset', json={
     "identifier": reset_test_phone,

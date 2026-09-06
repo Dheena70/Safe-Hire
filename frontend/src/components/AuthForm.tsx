@@ -33,7 +33,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     password: '',
     confirmPassword: '',
   });
-  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -60,10 +59,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         method: otpMethod
       });
       setOtpStep('verify_otp');
-      setNotice(res.message || `A 6-digit OTP code has been dispatched to ${identifier}.`);
-      if (res.otp_preview) {
-        setDemoOtp(res.otp_preview);
-      }
+      setNotice(res.message || `A 6-digit OTP code has been dispatched to your ${otpMethod === 'email' ? 'Email' : 'Mobile Phone'}.`);
     } catch (err: any) {
       setError(describeApiError(err));
     } finally {
@@ -120,7 +116,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           const res = await verifyOtpReset(verifyData);
           setAuthMode('login');
           setOtpStep('request_otp');
-          setDemoOtp(null);
           setNotice(res.message || 'Verification successful! Password updated. Please sign in.');
         }
       }
@@ -191,7 +186,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           ) : (
             <div className="text-center mb-6">
               <h2 className="text-lg font-bold text-white flex items-center justify-center space-x-2">
-                <span>🔐 2-Step OTP Password Reset</span>
+                <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>2-Step OTP Password Reset</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 {otpStep === 'request_otp' 
@@ -207,25 +205,29 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               <button
                 type="button"
                 onClick={() => { setOtpMethod('email'); setError(null); }}
-                className={`py-2 rounded-lg flex items-center justify-center space-x-1.5 transition ${
+                className={`py-2 rounded-lg flex items-center justify-center space-x-2 transition ${
                   otpMethod === 'email'
                     ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <span>✉️</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
                 <span>Email Address</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setOtpMethod('phone'); setError(null); }}
-                className={`py-2 rounded-lg flex items-center justify-center space-x-1.5 transition ${
+                className={`py-2 rounded-lg flex items-center justify-center space-x-2 transition ${
                   otpMethod === 'phone'
                     ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <span>📱</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
                 <span>Phone Number</span>
               </button>
             </div>
@@ -240,8 +242,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     Full Name
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                      👤
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
                     <input
                       id="name"
@@ -261,8 +265,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     Mobile Phone Number <span className="text-slate-500 lowercase font-normal">(optional)</span>
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                      📱
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
                     </div>
                     <input
                       id="phone"
@@ -296,8 +302,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   )}
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    ✉️
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   </div>
                   <input
                     id="email"
@@ -332,8 +340,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   )}
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    📱
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
                   </div>
                   <input
                     id="phone"
@@ -367,8 +377,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   </button>
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    🔢
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
                   </div>
                   <input
                     id="otp"
@@ -378,22 +390,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     required
                     value={formData.otp}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-cyan-500/60 rounded-xl text-white font-mono tracking-widest text-base placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-cyan-500/60 rounded-xl text-white font-mono tracking-widest text-base placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition text-center"
                     placeholder="123456"
                   />
                 </div>
-                {demoOtp && (
-                  <div className="mt-1.5 p-2 bg-cyan-950/40 border border-cyan-500/30 rounded-lg flex items-center justify-between text-xs">
-                    <span className="text-cyan-300">Generated OTP: <strong className="font-mono tracking-wider text-white text-sm">{demoOtp}</strong></span>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, otp: demoOtp }))}
-                      className="px-2 py-0.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded text-[10px] transition"
-                    >
-                      Auto-Fill
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -415,8 +415,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   )}
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    🔒
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
                   </div>
                   <input
                     id="password"
@@ -439,8 +441,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    🔒
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
                   </div>
                   <input
                     id="confirmPassword"
@@ -504,8 +508,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
           {/* Security Features Footnote */}
           <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-            <p className="text-[11px] text-slate-500 flex items-center justify-center space-x-1">
-              <span>🔒 256-Bit Encrypted Session</span>
+            <p className="text-[11px] text-slate-500 flex items-center justify-center space-x-2">
+              <svg className="w-3.5 h-3.5 text-cyan-400 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>256-Bit Encrypted Session</span>
               <span>•</span>
               <span>MCA Verified</span>
             </p>
@@ -517,6 +524,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 };
 
 export default AuthForm;
+
 
 
 
