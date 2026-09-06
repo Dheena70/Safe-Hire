@@ -971,13 +971,19 @@ SMTP_FROM_EMAIL = os.getenv('SMTP_FROM_EMAIL', SMTP_USERNAME or 'noreply@safehir
 
 def send_email_otp(to_email: str, otp_code: str) -> bool:
     """Send HTML verification OTP to user's real email inbox via SMTP if configured"""
-    if not SMTP_SERVER or not SMTP_USERNAME or not SMTP_PASSWORD:
+    smtp_server = os.getenv('SMTP_SERVER', '').strip() or 'smtp.gmail.com'
+    smtp_port = int(os.getenv('SMTP_PORT', '587'))
+    smtp_user = os.getenv('SMTP_USERNAME', '').strip()
+    smtp_pass = os.getenv('SMTP_PASSWORD', '').replace(' ', '').strip()
+    smtp_from = os.getenv('SMTP_FROM_EMAIL', smtp_user or 'noreply@safehire.ai').strip()
+
+    if not smtp_server or not smtp_user or not smtp_pass:
         logger.info(f"[DEV SERVER LOG] OTP for {to_email} -> {otp_code} (Configure SMTP in .env for real email delivery)")
         return False
     try:
         msg = MIMEMultipart('alternative')
         msg['Subject'] = "🔐 SAFE HIRE - Password Reset Verification Code"
-        msg['From'] = f"SAFE HIRE Security <{SMTP_FROM_EMAIL}>"
+        msg['From'] = f"SAFE HIRE Security <{smtp_from}>"
         msg['To'] = to_email
 
         html_content = f"""
@@ -1007,10 +1013,10 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         """
         msg.attach(MIMEText(html_content, 'html'))
 
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
         server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        server.sendmail(SMTP_FROM_EMAIL, [to_email], msg.as_string())
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_from, [to_email], msg.as_string())
         server.quit()
         logger.info(f"Successfully sent real verification email to {to_email}")
         return True
