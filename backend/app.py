@@ -64,7 +64,7 @@ USERS_FILE = os.path.join(BASE_DIR, 'users.json')
 PREDICTIONS_FILE = os.path.join(BASE_DIR, 'predictions.json')
 VISITORS_FILE = os.path.join(BASE_DIR, 'visitors.json')
 
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
 # Flask Application Initialization
 app = Flask(
