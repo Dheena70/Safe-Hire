@@ -279,9 +279,14 @@ export const getMe = async (token: string): Promise<AuthResponse['user']> => {
   return response.data;
 };
 
-export const getVisitorCount = async (): Promise<number> => {
+export const getVisitorCount = async (token?: string): Promise<number> => {
   try {
-    const response = await api.post('/api/visitors');
+    const headers: Record<string, string> = {};
+    const effectiveToken = token || localStorage.getItem('token');
+    if (effectiveToken) {
+      headers['Authorization'] = `Bearer ${effectiveToken}`;
+    }
+    const response = await api.post('/api/visitors', {}, { headers });
     return response.data.visitor_count;
   } catch {
     return 0;

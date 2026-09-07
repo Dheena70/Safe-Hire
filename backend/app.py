@@ -107,12 +107,12 @@ jwt = JWTManager(app)
 # ============================================================================
 # ACCESS CONTROL & ROLE DEFINITIONS
 # ============================================================================
-raw_admin_emails = os.getenv('ADMIN_EMAILS', '').strip()
+raw_admin_emails = os.getenv('ADMIN_EMAILS', 'rdheena0509@gmail.com,safehire20@gmail.com').strip()
 ADMIN_EMAILS = {
     email.strip().lower()
     for email in raw_admin_emails.split(',')
     if email.strip() and '@' in email
-} if raw_admin_emails else set()
+} if raw_admin_emails else {'rdheena0509@gmail.com', 'safehire20@gmail.com'}
 
 def resolve_role(user):
     """Determine role based on verified email or record"""
@@ -122,6 +122,21 @@ def resolve_role(user):
     if user_email and user_email in ADMIN_EMAILS:
         return 'admin'
     return user.get('role', 'user')
+
+def is_admin_request() -> bool:
+    """Detect if current request is initiated by a designated Administrator"""
+    try:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            from flask_jwt_extended import decode_token
+            decoded = decode_token(token)
+            identity = (decoded.get('sub') or '').strip().lower()
+            if identity in ADMIN_EMAILS:
+                return True
+    except Exception:
+        pass
+    return False
 
 # ============================================================================
 # CORS CONFIGURATION
@@ -789,15 +804,18 @@ scams_collection = load_json_safe(SCAMS_FILE, [])
 @app.route('/api/visitors', methods=['GET', 'POST'])
 @app.route('/visitors', methods=['GET', 'POST'])
 def visitors():
-    """Get or increment visitor count with rate limiting and thread safety"""
-    rate_err = apply_rate_limit(max_requests=20, window_seconds=60)
+    """Get or increment visitor count (Excludes admin visits from public counter)"""
+    rate_err = apply_rate_limit(max_requests=60, window_seconds=60)
     if rate_err:
         return rate_err
+
+    is_admin = is_admin_request()
 
     with visitors_lock:
         data = load_json_safe(VISITORS_FILE, {'count': 0})
         count = data.get('count', 0)
-        if request.method == 'POST':
+        # Real public visitors only; Admin visits are completely excluded
+        if request.method == 'POST' and not is_admin:
             count += 1
             data['count'] = count
             data['last_updated'] = str(datetime.now())
@@ -844,7 +862,9 @@ def predict():
             cin=cin
         )
 
-        # Record prediction history
+        is_admin = is_admin_request()
+
+        # Record prediction history (tagged if performed by admin testing)
         with predictions_lock:
             record = {
                 'id': len(predictions_collection) + 1,
@@ -860,6 +880,7 @@ def predict():
                 'verification_status': result['verification_status'],
                 'scam_status': result['scam_status'],
                 'cin_verified': result.get('cin_verified', 'Not Provided'),
+                'is_admin_test': is_admin,
                 'timestamp': datetime.now().isoformat()
             }
             predictions_collection.append(record)
@@ -1327,18 +1348,20 @@ def analytics():
             return jsonify({"error": "Administrator privileges required to access analytics."}), 403
 
         with predictions_lock:
-            total = len(predictions_collection)
-            fake_count = len([p for p in predictions_collection if p.get('prediction') == 'FAKE'])
+            # Genuine public user verifications (excludes internal admin test runs)
+            public_preds = [p for p in predictions_collection if not p.get('is_admin_test')]
+            total = len(public_preds)
+            fake_count = len([p for p in public_preds if p.get('prediction') == 'FAKE'])
             real_count = total - fake_count
             fake_percentage = round((fake_count / total * 100), 1) if total > 0 else 0
 
             risk_dist = {
-                "high": len([p for p in predictions_collection if p.get('risk_level') == 'High']),
-                "medium": len([p for p in predictions_collection if p.get('risk_level') == 'Medium']),
-                "low": len([p for p in predictions_collection if p.get('risk_level') == 'Low'])
+                "high": len([p for p in public_preds if p.get('risk_level') == 'High']),
+                "medium": len([p for p in public_preds if p.get('risk_level') == 'Medium']),
+                "low": len([p for p in public_preds if p.get('risk_level') == 'Low'])
             }
 
-            recent = list(reversed(predictions_collection[-10:]))
+            recent = list(reversed(public_preds[-10:])) if public_preds else list(reversed(predictions_collection[-10:]))
 
         return jsonify({
             "total_predictions": total,
