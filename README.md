@@ -1,13 +1,13 @@
 <div align="center">
   <img src="frontend/src/assets/safe-hire-brand.png" alt="SAFE HIRE Logo" width="380" />
 
-  # SAFE HIRE (v2.2)
+  # SAFE HIRE v2.2
   
-  **Production-Grade AI Fraud Intelligence, Offer Letter Forensics & Company Legitimacy Verification Platform**
+  **AI-Powered Job Scam & Corporate Legitimacy Verification Platform**
 
   [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-  [![React](https://img.shields.io/badge/React-18.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
-  [![TypeScript](https://img.shields.io/badge/TypeScript-4.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+  [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-4.9+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
   [![Flask](https://img.shields.io/badge/Flask-2.3+-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
   [![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML%20Ensemble-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind-Cyber--Glassmorphism-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
@@ -18,39 +18,42 @@
 
 ## 📌 Overview
 
-**SAFE HIRE** is an advanced, production-grade cyber-intelligence and machine learning platform created to protect job seekers against fraudulent recruitment syndicates, predatory fee extortions, and corporate impersonation schemes.
+**SAFE HIRE** is a production-grade cyber-intelligence and machine-learning platform engineered to protect job seekers, students, and professionals from recruitment fraud, fake appointment letters, and corporate impersonation schemes.
 
-The platform fuses **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembles** with official **Ministry of Corporate Affairs (MCA) Corporate Identification Number (CIN)** lookup, regional company registries (~228,000 records), live document forensics, and a crowd-sourced fraud registry.
+It integrates a multi-layered verification engine combining **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembles**, real-time **Ministry of Corporate Affairs (MCA) Corporate Identification Number (CIN)** lookup across ~228,000 legal entity records, **SSRF-hardened Job URL extraction**, **Offer Letter PDF forensic scanning**, and a **crowd-sourced Community Scam Alert Board**.
 
 ---
 
-## 🌟 What's New in v2.2 (Major Power Upgrades)
+## 🚀 Key Features & Capabilities
 
-### 1. 📜 Download Official Security Audit Certificate (PDF)
-- **High-Resolution Tamper-Evident Report**: Instant client-side generation of an official printable certificate with zero third-party dependencies.
-- **Verification Stamp & Authenticity Key**: Features unique Audit ID (`SH-AUDIT-YYYY-XXXXXX`), timestamp, AI legitimacy verdict (`APPROVED` / `REJECTED`), threat rating, legitimacy gauge, MCA CIN match, and forensic signal breakdown.
+### 1. 🎯 Direct Job Legitimacy Verification
+- **Hybrid ML Ensemble**: TF-IDF NLP token classification + Logistic Regression + Random Forest.
+- **Government MCA CIN Registry Check**: Instant lookup of 21-character Corporate Identification Numbers with registered legal entity names.
+- **Regional Records Validation**: Cross-checks against ~228,000 regional company records.
+- **Live Fraud Database**: Cross-references against verified scam company syndicates.
+- **Interactive Test Presets**: 1-Click loading of real corporate jobs (with & without CIN) and scam samples.
 
-### 2. 📄 Offer Letter PDF & Document Forensic Scanner (`/api/scan-offer-letter`)
-- **PDF Upload & Drag-and-Drop**: Upload appointment letters (.pdf / .txt) or paste offer transcripts.
-- **Deep Forensic Rules**:
-  - **Upfront Fee Demands**: Detects laptop deposits, training fees, caution deposits, and registration charges.
-  - **MNC Webmail Impersonation**: Flags generic public emails (`@gmail.com`, `@yahoo.com`) pretending to recruit for top MNCs (TCS, Infosys, Wipro, Google, Microsoft, Amazon, etc.).
-  - **Coercive Threats**: Flags high-pressure extortion clauses (*"payment within 24 hours"*, *"legal notice"*).
-  - **MCA CIN Extraction**: Extracts 21-character CIN numbers directly from the document.
+### 2. 📜 Official Security Audit Certificate (PDF)
+- **1-Click Printable PDF Certificate**: High-resolution audit document with tamper-evident certificate ID (`SH-AUDIT-YYYY-XXXXXX`).
+- **Official Digital Seal**: Displays verification verdict (`APPROVED` / `REJECTED`), confidence gauge, risk tier (Low/Medium/High), MCA CIN match badge, and itemized forensic signals.
 
-### 3. 🌐 1-Click Job URL Auto-Fetcher (`/api/fetch-job-url`)
-- **Auto-Extraction**: Paste URLs from LinkedIn, Naukri, Indeed, Glassdoor, or corporate career sites to auto-populate company name, job designation, description, email, and website.
-- **SSRF Hardening (Server-Side Request Forgery)**: Blocks internal subnets (`127.0.0.0/8`, `10.0.0.0/8`, `192.168.0.0/16`, `172.16.0.0/12`) and cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`).
+### 3. 📄 Offer Letter PDF & Document Forensic Scanner
+- **PDF Upload & Text Drag-and-Drop**: Scans appointment letters using `pypdf` forensic extraction.
+- **Fee Demand Detection**: Identifies illegal upfront registration charges, laptop caution deposits, training fees, and stamp paper extortion.
+- **MNC Impersonation Defense**: Flags recruiters using generic webmail (`@gmail.com`, `@yahoo.com`) pretending to represent MNCs (TCS, Infosys, Wipro, Google, Microsoft, Amazon, etc.).
+- **Coercive Threat Detection**: Catches high-pressure urgency ("pay within 24 hours", "police complaint").
 
-### 4. 🚨 Community Scam Alert Board & Live Feed (`/api/scams`)
-- **Live Fraud Feed**: Crowd-sourced registry of verified recruitment scams, fake Telegram tasks, and fraudulent consultancies.
-- **Search & Category Filters**: Search by keyword or filter by `Data Entry`, `Telegram Task`, `Fake MNC`, `Abroad Job`, `Fee Demand`.
-- **Upvoting & Reporting**: Submit new fraud incidents and upvote existing alerts to protect the job seeker community.
+### 4. 🌐 1-Click Job URL Auto-Fetcher
+- **Automated Extraction**: Paste URLs from LinkedIn, Naukri, Indeed, or career portals to auto-fill company name, title, description, HR email, and domain.
+- **SSRF Hardened**: Blocks private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.0.0/16`) and cloud metadata endpoints.
 
-### 5. 🔐 2-Step 6-Digit OTP Password Reset Flow
-- **Cryptographic Entropy**: Dispatches 6-digit numeric verification codes with a 2-minute TTL.
-- **Dual Delivery**: Supports verified delivery via registered **Email Address** and **Mobile Phone Number**.
-- **Brute-Force & Replay Protection**: Throttled to 5 attempts, constant-time verification (`secrets.compare_digest`), and single-use token invalidation.
+### 5. 🚨 Community Scam Alert Board & Live Feed
+- **Live Fraud Feed**: Public registry of reported scams with category filters (`Data Entry`, `Telegram Task`, `Fake MNC`, `Abroad Job`, `Fee Demand`).
+- **Community Upvoting & Incident Reporting**: Allows job seekers to publish and confirm scam syndicates in real time.
+
+### 6. 🔐 2-Step OTP Password Reset & Enterprise Security
+- **Dual-Channel OTP Delivery**: Cryptographically secure 6-digit verification code dispatched via real SMTP Email or Mobile SMS with logo-branded HTML email template.
+- **Security Protections**: Sliding-window rate limiter, Bcrypt password hashing, brute-force lockout, single-use OTP invalidation, and strict CSP headers.
 
 ---
 
@@ -58,12 +61,12 @@ The platform fuses **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembl
 
 | Component | Technology | Description |
 |---|---|---|
-| **Frontend UI** | React 18, TypeScript, Tailwind CSS | Cyber-Glassmorphism Dark Theme (`slate-950`, `cyan-400`) |
-| **Backend API** | Python 3.11, Flask, Gunicorn | Secure RESTful API with CORS preflight & rate limiting |
-| **Document Forensics** | PyPDF, BeautifulSoup4 | PDF text extraction and OpenGraph metadata parsing |
-| **Machine Learning & NLP** | scikit-learn, NLTK, NumPy, Pandas | TF-IDF vectorization, Logistic Regression, Random Forest Ensemble |
-| **Corporate Databases** | MCA Registry (CSV), JSON | 228,000+ registered entities and thread-safe atomic storage |
-| **Security & Auth** | Flask-JWT-Extended, Bcrypt, Secrets | 256-bit JWTs, Bcrypt hashing, SSRF prevention, CSP headers |
+| **Frontend UI** | React 18, TypeScript, Tailwind CSS | Cyber-Dark Glassmorphism responsive interface |
+| **Backend API** | Python 3.11, Flask, Flask-CORS, Flask-JWT-Extended | RESTful architecture with defense-in-depth security |
+| **Machine Learning & NLP** | scikit-learn, NLTK, NumPy, Pandas | TF-IDF vectorizer + Scaler + Logistic Regression + Random Forest |
+| **Document Forensics** | PyPDF, BeautifulSoup4 | PDF text extraction & DOM parsing with SSRF protection |
+| **Databases & Storage** | MCA Corporate Registries (CSV), Atomic JSON | Thread-safe in-memory stores with atomic file persistence |
+| **Authentication** | JWT (256-bit), Bcrypt, Python `secrets` | Role-Based Access Control (RBAC) & 2-Step OTP Reset |
 
 ---
 
@@ -71,26 +74,25 @@ The platform fuses **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembl
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/predict` or `/api/predict` | Run AI ensemble, MCA CIN lookup & legitimacy prediction |
-| `POST` | `/api/scan-offer-letter` | Scan uploaded offer letter PDF or text for fraud signatures |
-| `POST` | `/api/fetch-job-url` | Auto-extract job details from LinkedIn, Naukri, Indeed URLs |
-| `GET` | `/api/scams` | Fetch community scam alerts with search & category filters |
-| `POST` | `/api/scams/report` | Submit a new scam incident to the alert board |
-| `POST` | `/api/scams/<id>/vote` | Upvote a scam alert to confirm community consensus |
-| `POST` | `/auth/register` | Register a new user account with password policy checks |
-| `POST` | `/auth/login` | Authenticate user & issue 24-hour JWT token |
-| `POST` | `/auth/send-otp` | Generate & dispatch 6-digit OTP to Email or Phone |
-| `POST` | `/auth/verify-otp-reset` | Verify 6-digit OTP & update user password |
-| `GET` | `/auth/me` | Fetch authenticated user profile details |
-| `GET` | `/admin/analytics` | Fetch admin fraud metrics, distributions & audit logs |
-| `POST` | `/api/visitors` | Atomic visitor tracking counter |
+| `POST` | `/predict` or `/api/predict` | Analyze company legitimacy & job description |
+| `POST` | `/api/scan-offer-letter` | Forensic scan of offer letter PDF or pasted text |
+| `POST` | `/api/fetch-job-url` | SSRF-safe 1-Click extraction from job URLs |
+| `GET` | `/api/scams` | Fetch community scam alerts with search & filters |
+| `POST` | `/api/scams/report` | Submit new recruitment fraud incident |
+| `POST` | `/api/scams/:id/vote` | Upvote / confirm a reported scam |
+| `POST` | `/auth/register` | Register user with strong password policy |
+| `POST` | `/auth/login` | Authenticate user & issue JWT token |
+| `POST` | `/auth/send-otp` | Dispatch 6-digit OTP to Email or Phone |
+| `POST` | `/auth/verify-otp-reset` | Verify OTP and reset password |
+| `GET` | `/auth/me` | Retrieve authenticated user profile |
+| `GET` | `/admin/analytics` | Admin-only dashboard analytics and logs |
+| `POST` | `/api/visitors` | Thread-safe visitor counter |
 
 ---
 
-## 🧪 Comprehensive Verification & Test Suite
+## 🧪 Comprehensive Test Suite (15/15 Passed)
 
-The system includes an automated 15-test security and functional test suite:
-
+Run the end-to-end integration and security test suite:
 ```bash
 cd backend
 python test_backend.py
@@ -100,21 +102,21 @@ python test_backend.py
 =================================================================
 SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.2)
 =================================================================
-[Test 1] Checking ML detector initialization ......... [PASS]
-[Test 2] Testing Security HTTP Headers ................ [PASS]
-[Test 3] Testing POST /api/visitors ................... [PASS]
-[Test 4] Testing POST /predict (Real Company + CIN) ... [PASS]
-[Test 5] Testing POST /predict (No Email/Website) ..... [PASS]
-[Test 6] Testing POST /predict (Known Scam Company) ... [PASS]
-[Test 7] Testing Input Validation & Sanitization ...... [PASS]
-[Test 8] Testing Password Complexity Policy .......... [PASS]
-[Test 9] Testing User Auth & Admin RBAC ............... [PASS]
-[Test 10] Testing Rate Limiting on Auth ............... [PASS]
-[Test 11] Testing 2-Step OTP Password Reset (Email/SMS) [PASS]
-[Test 12] Testing POST /api/scan-offer-letter ........ [PASS]
-[Test 13] Testing POST /api/fetch-job-url SSRF Guard .. [PASS]
-[Test 14] Testing GET /api/scams ...................... [PASS]
-[Test 15] Testing POST /api/scams/report & Upvoting ... [PASS]
+[Test 1] ML detector initialization .............. [PASS]
+[Test 2] Security HTTP Headers (nosniff/CSP) ...... [PASS]
+[Test 3] Visitors API counter ..................... [PASS]
+[Test 4] Real Company with MCA CIN ................ [PASS]
+[Test 5] Real Job without Email/Web ............... [PASS]
+[Test 6] Known Scam Company Detection ............. [PASS]
+[Test 7] Server-side Input Sanitization ........... [PASS]
+[Test 8] Password Complexity Policy ............... [PASS]
+[Test 9] User Authentication & Admin RBAC ......... [PASS]
+[Test 10] Rate Limiting (Brute Force Protection) .. [PASS]
+[Test 11] 2-Step OTP Password Reset (Email/Phone) . [PASS]
+[Test 12] Offer Letter Fraud PDF Scanner .......... [PASS]
+[Test 13] SSRF Hardening & Job URL Fetcher ........ [PASS]
+[Test 14] Community Scam Alert Board Feed ......... [PASS]
+[Test 15] Community Scam Reporting & Upvoting ..... [PASS]
 =================================================================
 ALL 15 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]
 =================================================================
@@ -124,18 +126,12 @@ ALL 15 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]
 
 ## 🚀 Quick Start (Local Run)
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Dheena70/Safe-Hire.git
-cd Safe-Hire
-```
-
-### 2. Windows 1-Click Launch:
+### Windows:
 ```powershell
 .\start.bat
 ```
 
-### 3. macOS / Linux Launch:
+### macOS / Linux:
 ```bash
 chmod +x start.sh
 ./start.sh
@@ -146,17 +142,19 @@ chmod +x start.sh
 
 ---
 
-## ☁️ 1-Step Cloud Hosting (Render.com)
+## ☁️ Cloud Deployment (Render.com)
 
-1. Connect your GitHub repository to [Render.com](https://dashboard.render.com/).
-2. Select **Web Service**:
+1. Connect your GitHub repository: [`https://github.com/Dheena70/Safe-Hire`](https://github.com/Dheena70/Safe-Hire)
+2. Create **Web Service**:
    - **Build Command**: `chmod +x build.sh && ./build.sh`
    - **Start Command**: `gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
-3. Add Environment Variables:
-   - `JWT_SECRET_KEY` = `your-cryptographic-secret`
+3. Environment Variables:
+   - `JWT_SECRET_KEY` = `<your-secure-random-key>`
    - `ADMIN_EMAILS` = `admin@example.com`
-   - `SMTP_USERNAME` = `your-email@gmail.com` *(optional for live OTP email delivery)*
-   - `SMTP_PASSWORD` = `your-gmail-app-password` *(optional)*
+   - `SMTP_SERVER` = `smtp.gmail.com` *(optional for live OTP email delivery)*
+   - `SMTP_PORT` = `587`
+   - `SMTP_USERNAME` = `<your-gmail-address>`
+   - `SMTP_PASSWORD` = `<your-google-app-password>`
 
 ---
 
