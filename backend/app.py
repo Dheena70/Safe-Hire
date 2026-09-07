@@ -1059,6 +1059,84 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         logger.error(f"Failed to dispatch email to {to_email} via SMTP: {e}")
         return False
 
+def send_mobile_sms_otp(phone: str, otp_code: str) -> bool:
+    """
+    Dispatch SMS OTP to user's real mobile phone via Fast2SMS (India) or Twilio (Global).
+    Falls back to development console logging if no SMS credentials are provided.
+    """
+    cleaned_phone = normalize_phone(phone)
+    digits_only = re.sub(r'\D', '', cleaned_phone)
+    indian_10_digit = digits_only[2:] if (digits_only.startswith('91') and len(digits_only) == 12) else digits_only
+
+    # Option 1: Fast2SMS (Indian SMS Gateway)
+    fast2sms_key = os.getenv('FAST2SMS_API_KEY', '').strip()
+    if fast2sms_key and len(indian_10_digit) == 10:
+        try:
+            url = "https://www.fast2sms.com/dev/bulkV2"
+            payload = {
+                "route": "otp",
+                "variables_values": otp_code,
+                "numbers": indian_10_digit
+            }
+            headers = {
+                "authorization": fast2sms_key,
+                "Content-Type": "application/json"
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers=headers,
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res_body = response.read().decode('utf-8')
+                res_json = json.loads(res_body)
+                if res_json.get('return'):
+                    logger.info(f"📱 [Fast2SMS] Successfully dispatched real SMS OTP to {indian_10_digit}")
+                    return True
+                else:
+                    logger.warning(f"📱 [Fast2SMS] API response: {res_json.get('message', res_body)}")
+        except Exception as e:
+            logger.error(f"📱 [Fast2SMS] Failed to send SMS to {indian_10_digit}: {e}")
+
+    # Option 2: Twilio (Global SMS API)
+    twilio_sid = os.getenv('TWILIO_ACCOUNT_SID', '').strip()
+    twilio_token = os.getenv('TWILIO_AUTH_TOKEN', '').strip()
+    twilio_from = os.getenv('TWILIO_PHONE_NUMBER', '').strip()
+    if twilio_sid and twilio_token and twilio_from:
+        try:
+            import base64
+            url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+            to_phone = f"+{digits_only}" if not cleaned_phone.startswith('+') else cleaned_phone
+            msg_body = f"🔐 SAFE HIRE Security Verification Code: {otp_code} (Valid for 2 minutes. Do not share with anyone)."
+            data = urllib.parse.urlencode({
+                "To": to_phone,
+                "From": twilio_from,
+                "Body": msg_body
+            }).encode('utf-8')
+
+            auth_str = f"{twilio_sid}:{twilio_token}"
+            auth_b64 = base64.b64encode(auth_str.encode('ascii')).decode('ascii')
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={
+                    "Authorization": f"Basic {auth_b64}",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res_body = response.read().decode('utf-8')
+                logger.info(f"📱 [Twilio] Successfully dispatched SMS OTP to {to_phone}")
+                return True
+        except Exception as e:
+            logger.error(f"📱 [Twilio] Failed to send SMS to {cleaned_phone}: {e}")
+
+    # Fallback if no SMS provider configured
+    logger.info(f"📱 [SMS GATEWAY LOG] OTP for {cleaned_phone} -> {otp_code} (Add FAST2SMS_API_KEY in .env to receive real mobile SMS)")
+    return False
+
 @app.route('/auth/send-otp', methods=['POST'])
 @app.route('/api/auth/send-otp', methods=['POST'])
 def send_otp():
@@ -1117,8 +1195,12 @@ def send_otp():
             if user.get('phone'):
                 otp_store[normalize_phone(user['phone'])] = otp_store[lookup_key]
 
-        # Dispatch via Email asynchronously in background thread for fast UI response
-        if '@' in lookup_key:
+        # Dispatch via Mobile SMS or Email asynchronously in background thread for fast UI response
+        if method == 'phone' or ('@' not in identifier and any(c.isdigit() for c in identifier)):
+            raw_phone = user.get('phone') or identifier
+            if raw_phone:
+                threading.Thread(target=send_mobile_sms_otp, args=(raw_phone, otp_val), daemon=True).start()
+        elif '@' in lookup_key:
             threading.Thread(target=send_email_otp, args=(lookup_key, otp_val), daemon=True).start()
 
         masked_target = lookup_key
