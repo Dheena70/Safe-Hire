@@ -133,9 +133,105 @@ export interface AnalyticsData {
   recent_predictions: RecentPrediction[];
 }
 
+export interface OfferScanResponse {
+  verdict: 'GENUINE' | 'SUSPICIOUS' | 'HIGH_RISK_FRAUD';
+  status_label: string;
+  legitimacy_score: number; // 0 - 100
+  risk_score: number;
+  extracted_details: {
+    company_name: string;
+    job_title: string;
+    emails: string[];
+    cin: string;
+    salary: string;
+    char_count: number;
+  };
+  red_flags: string[];
+  green_flags: string[];
+  recommendations: string[];
+  raw_text_preview?: string;
+  filename?: string;
+  scanned_at?: string;
+}
+
+export interface JobUrlFetchResponse {
+  url: string;
+  company_name: string;
+  title: string;
+  description: string;
+  email?: string;
+  website?: string;
+  status: string;
+}
+
+export interface ScamRecord {
+  id: string;
+  company_name: string;
+  job_title: string;
+  scam_type: string;
+  description: string;
+  contact_info: string;
+  demanded_amount: string;
+  reported_by: string;
+  date: string;
+  votes: number;
+  verified_fraud: boolean;
+}
+
+export interface ScamsResponse {
+  total: number;
+  scams: ScamRecord[];
+}
+
+export interface ReportScamRequest {
+  company_name: string;
+  job_title?: string;
+  scam_type: string;
+  description: string;
+  contact_info?: string;
+  demanded_amount?: string;
+  reported_by?: string;
+}
+
 // API Functions
 export const predictJob = async (data: PredictionRequest): Promise<PredictionResponse> => {
   const response = await api.post('/predict', data);
+  return response.data;
+};
+
+export const scanOfferLetter = async (input: File | string): Promise<OfferScanResponse> => {
+  if (typeof input === 'string') {
+    const response = await api.post('/api/scan-offer-letter', { text: input });
+    return response.data;
+  } else {
+    const formData = new FormData();
+    formData.append('file', input);
+    const response = await api.post('/api/scan-offer-letter', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+};
+
+export const fetchJobUrl = async (url: string): Promise<JobUrlFetchResponse> => {
+  const response = await api.post('/api/fetch-job-url', { url });
+  return response.data;
+};
+
+export const getScams = async (params?: { q?: string; category?: string }): Promise<ScamsResponse> => {
+  const response = await api.get('/api/scams', { params });
+  return response.data;
+};
+
+export const reportScam = async (data: ReportScamRequest): Promise<{ message: string; scam: ScamRecord }> => {
+  const response = await api.post('/api/scams/report', data);
+  return response.data;
+};
+
+export const voteScam = async (scamId: string): Promise<{ message: string; votes: number }> => {
+  const response = await api.post(`/api/scams/${scamId}/vote`);
   return response.data;
 };
 

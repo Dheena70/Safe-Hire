@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { predictJob, PredictionRequest, PredictionResponse, describeApiError } from '../services/api';
+import { predictJob, fetchJobUrl, PredictionRequest, PredictionResponse, describeApiError } from '../services/api';
+import { generateSecurityAuditPDF } from '../utils/pdfGenerator';
 import bgImage from '../assets/safe-hire-bg.png';
 
 const VerificationForm: React.FC = () => {
@@ -11,6 +12,10 @@ const VerificationForm: React.FC = () => {
     website: '',
     cin: '',
   });
+
+  const [jobUrl, setJobUrl] = useState('');
+  const [fetchingUrl, setFetchingUrl] = useState(false);
+  const [urlSuccess, setUrlSuccess] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PredictionResponse | null>(null);
@@ -62,8 +67,35 @@ const VerificationForm: React.FC = () => {
       website: '',
       cin: '',
     });
+    setJobUrl('');
+    setUrlSuccess(null);
     setResult(null);
     setError(null);
+  };
+
+  const handleFetchJobUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!jobUrl.trim()) return;
+    setFetchingUrl(true);
+    setError(null);
+    setUrlSuccess(null);
+    try {
+      const fetched = await fetchJobUrl(jobUrl.trim());
+      setFormData((prev) => ({
+        ...prev,
+        company_name: fetched.company_name || prev.company_name,
+        title: fetched.title || prev.title,
+        description: fetched.description || prev.description,
+        email: fetched.email || prev.email,
+        website: fetched.website || prev.website,
+      }));
+      setUrlSuccess(`✓ Auto-extracted details for "${fetched.company_name || 'Job Listing'}"!`);
+      setTimeout(() => setUrlSuccess(null), 6000);
+    } catch (err: any) {
+      setError(describeApiError(err));
+    } finally {
+      setFetchingUrl(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -202,6 +234,57 @@ contracts with official registered corporate sources.
               <span>Scam DB Cross-Check</span>
             </span>
           </div>
+        </div>
+
+        {/* 1-Click Job URL Auto-Fetcher */}
+        <div className="backdrop-blur-xl bg-slate-900/80 border border-cyan-500/30 rounded-2xl p-5 shadow-xl shadow-cyan-950/20 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-cyan-400 text-base">🌐</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                1-Click Job URL Auto-Fetcher (LinkedIn, Naukri, Indeed, Careers)
+              </h3>
+            </div>
+            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 font-mono">
+              SSRF Protected
+            </span>
+          </div>
+
+          <form onSubmit={handleFetchJobUrl} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <input
+                type="url"
+                value={jobUrl}
+                onChange={(e) => setJobUrl(e.target.value)}
+                placeholder="Paste job URL (e.g. https://www.linkedin.com/jobs/view/... or https://www.naukri.com/...)"
+                className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 font-mono"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={fetchingUrl || !jobUrl.trim()}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20 shrink-0"
+            >
+              {fetchingUrl ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Extracting Details...</span>
+                </>
+              ) : (
+                <>
+                  <span>⚡</span>
+                  <span>Auto-Fill Form</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {urlSuccess && (
+            <div className="text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl font-medium flex items-center gap-2 animate-fadeIn">
+              <span>✨</span>
+              <span>{urlSuccess}</span>
+            </div>
+          )}
         </div>
 
         {/* 1-Click Interactive Test Preset Loaders */}
@@ -579,14 +662,23 @@ contracts with official registered corporate sources.
             </div>
 
             {/* Action Bar */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-800">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => generateSecurityAuditPDF(formData, result)}
+                className="flex-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-lg shadow-cyan-950/30 flex items-center justify-center space-x-2 text-sm"
+              >
+                <span>📜</span>
+                <span>Download Official Audit Certificate (PDF)</span>
+              </button>
               <button
                 type="button"
                 onClick={handleDownloadReport}
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-lg shadow-emerald-950/20 flex items-center justify-center space-x-2 text-sm"
+                className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold rounded-xl transition border border-slate-700 flex items-center justify-center space-x-2 text-xs"
+                title="Download raw forensic log"
               >
-                <span>📥</span>
-                <span>Download Official Audit Report (.txt)</span>
+                <span>📄</span>
+                <span>Audit Log (.txt)</span>
               </button>
               <button
                 type="button"
@@ -594,7 +686,7 @@ contracts with official registered corporate sources.
                   setResult(null);
                   handleClear();
                 }}
-                className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold rounded-xl transition border border-slate-700 text-sm"
+                className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold rounded-xl transition border border-slate-700 text-xs"
               >
                 Verify Another Listing
               </button>

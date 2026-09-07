@@ -237,6 +237,80 @@ assert new_login.status_code == 200
 assert 'access_token' in new_login.json
 print("  [PASS] 2-Step OTP Password Reset verified for both Email and Phone Number options successfully.")
 
+# 12. Offer Letter Fraud Detection Scanner Test
+print("\n[Test 12] Testing POST /api/scan-offer-letter...")
+limiter.requests.clear()
+fake_offer_text = """
+APEX GLOBAL TECHNOLOGIES PRIVATE LIMITED
+OFFER OF EMPLOYMENT & APPOINTMENT LETTER
+
+Dear Candidate,
+We are pleased to offer you the position of Junior Data Analyst at Apex Global Technologies.
+Your annual salary package (CTC) will be Rs. 6,50,000 per annum.
+
+CONDITIONS & MANDATORY REQUIREMENTS:
+1. You must deposit a refundable security deposit of Rs. 4,500 for laptop insurance and training kit.
+2. Transfer the registration fee within 24 hours via UPI / GPay to the HR desk.
+3. Failure to pay within 24 hours will lead to cancellation of this offer and legal action.
+
+Contact: careers.apextech@gmail.com | Phone: +91 98451 00000
+"""
+res = client.post('/api/scan-offer-letter', json={"text": fake_offer_text})
+assert res.status_code == 200, f"Status {res.status_code}: {res.data}"
+scan_data = res.json
+print(f"  Verdict: {scan_data['verdict']}, Legitimacy Score: {scan_data['legitimacy_score']}%, Red Flags: {len(scan_data['red_flags'])}")
+assert scan_data['verdict'] == 'HIGH_RISK_FRAUD', f"Expected HIGH_RISK_FRAUD, got {scan_data['verdict']}"
+assert scan_data['legitimacy_score'] < 50
+assert any('fee' in rf.lower() or 'demand' in rf.lower() or 'payment' in rf.lower() for rf in scan_data['red_flags'])
+print("  [PASS] Offer Letter Scanner accurately flagged upfront fee demand and webmail as HIGH_RISK_FRAUD.")
+
+# 13. SSRF Protection & URL Fetcher Test
+print("\n[Test 13] Testing POST /api/fetch-job-url SSRF Hardening...")
+limiter.requests.clear()
+# Test SSRF attack attempt on localhost
+ssrf_res = client.post('/api/fetch-job-url', json={"url": "http://127.0.0.1:5050/admin/analytics"})
+assert ssrf_res.status_code == 400
+assert "restricted" in ssrf_res.json.get('error', '').lower() or "security" in ssrf_res.json.get('error', '').lower()
+
+# Test SSRF attack attempt on AWS/GCP cloud metadata
+meta_res = client.post('/api/fetch-job-url', json={"url": "http://169.254.169.254/latest/meta-data/"})
+assert meta_res.status_code == 400
+print("  [PASS] SSRF protection blocked localhost and cloud metadata traversal attempts.")
+
+# 14. Community Scam Alert Board (Feed & Filters)
+print("\n[Test 14] Testing GET /api/scams...")
+limiter.requests.clear()
+scams_res = client.get('/api/scams')
+assert scams_res.status_code == 200
+scams_data = scams_res.json
+assert scams_data['total'] >= 1
+assert 'scams' in scams_data
+print(f"  [PASS] Retrieved {scams_data['total']} scam alert records from database.")
+
+# 15. Community Scam Reporting & Upvoting
+print("\n[Test 15] Testing POST /api/scams/report & /api/scams/<id>/vote...")
+limiter.requests.clear()
+new_scam_payload = {
+    "company_name": "Test Scam Ventures Pvt Ltd",
+    "job_title": "Telegram Review Specialist",
+    "scam_type": "Telegram Task",
+    "description": "Demanded Rs. 5000 crypto deposit to release payout after completing tasks.",
+    "contact_info": "@test_fraud_channel",
+    "demanded_amount": "₹5,000",
+    "reported_by": "Security Tester"
+}
+report_res = client.post('/api/scams/report', json=new_scam_payload)
+assert report_res.status_code == 200, f"Report failed: {report_res.data}"
+created_scam = report_res.json['scam']
+scam_id = created_scam['id']
+initial_votes = created_scam['votes']
+
+# Vote on the created scam
+vote_res = client.post(f'/api/scams/{scam_id}/vote')
+assert vote_res.status_code == 200, f"Vote failed: {vote_res.data}"
+assert vote_res.json['votes'] == initial_votes + 1
+print(f"  [PASS] Created scam alert ({scam_id}) and upvoted to {vote_res.json['votes']} votes.")
+
 print("\n" + "=" * 65)
-print("ALL 11 SECURITY & SYSTEM TESTS PASSED SUCCESSFULLY! [OK]")
+print("ALL 15 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]")
 print("=" * 65)

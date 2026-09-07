@@ -1,0 +1,67 @@
+[
+  {
+    "id": "scam-1788777047944",
+    "company_name": "Test Scam Ventures Pvt Ltd",
+    "job_title": "Telegram Review Specialist",
+    "scam_type": "Telegram Task",
+    "description": "Demanded Rs. 5000 crypto deposit to release payout after completing tasks.",
+    "contact_info": "@test_fraud_channel",
+    "demanded_amount": "\u20b95,000",
+    "reported_by": "Security Tester",
+    "date": "2026-09-07",
+    "votes": 2,
+    "verified_fraud": true
+  },
+  {
+    "id": "scam-101",
+    "company_name": "Apex Global Solutions Ltd (Impersonation)",
+    "job_title": "Remote Data Entry Operator",
+    "scam_type": "Data Entry",
+    "description": "Asked to sign a fake legal agreement on stamp paper and demanded Rs. 3,500 security deposit for laptop delivery. Threatened legal action when questioned.",
+    "contact_info": "+91 98451 22319 (WhatsApp HR Priya)",
+    "demanded_amount": "\u20b93,500",
+    "reported_by": "Karthik R.",
+    "date": "2026-09-05",
+    "votes": 42,
+    "verified_fraud": true
+  },
+  {
+    "id": "scam-102",
+    "company_name": "Global Media Review Partners",
+    "job_title": "YouTube Video Liker & Reviewer",
+    "scam_type": "Telegram Task",
+    "description": "Offered Rs. 150 per YouTube like. Paid Rs. 300 initially on Telegram, then added to a VIP task group demanding Rs. 10,000 crypto transfer to unlock earnings.",
+    "contact_info": "@MediaTasksAdmin_bot on Telegram",
+    "demanded_amount": "\u20b910,000",
+    "reported_by": "Sneha M.",
+    "date": "2026-09-04",
+    "votes": 89,
+    "verified_fraud": true
+  },
+  {
+    "id": "scam-103",
+    "company_name": "TCS Recruitment Partners (Fake Consultancy)",
+    "job_title": "Junior Python Developer",
+    "scam_type": "Fake MNC",
+    "description": "Sent a fake TCS offer letter from 'careers-tcsindia@gmail.com' and demanded Rs. 8,500 for document verification and background check kit.",
+    "contact_info": "careers-tcsindia@gmail.com",
+    "demanded_amount": "\u20b98,500",
+    "reported_by": "Vikram S.",
+    "date": "2026-09-03",
+    "votes": 67,
+    "verified_fraud": true
+  },
+  {
+    "id": "scam-104",
+    "company_name": "Singapore Maritime Careers Hub",
+    "job_title": "Warehouse Logistics Assistant",
+    "scam_type": "Abroad Job Fraud",
+    "description": "Guaranteed visa sponsorship with Rs. 1.2 Lakh salary. Demanded Rs. 25,000 upfront medical processing fee to a personal UPI ID.",
+    "contact_info": "+91 87544 19280 / abroadjobs@consultancy.in",
+    "demanded_amount": "\u20b925,000",
+    "reported_by": "Arun Kumar",
+    "date": "2026-09-01",
+    "votes": 54,
+    "verified_fraud": true
+  }
+]

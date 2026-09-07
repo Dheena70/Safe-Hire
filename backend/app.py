@@ -23,6 +23,14 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 
+import io
+import socket
+import ipaddress
+import urllib.request
+import urllib.parse
+from bs4 import BeautifulSoup
+import pypdf
+
 import bcrypt
 import joblib
 import nltk
@@ -63,6 +71,7 @@ DATASETS_DIR = os.path.join(BASE_DIR, '..', 'datasets')
 USERS_FILE = os.path.join(BASE_DIR, 'users.json')
 PREDICTIONS_FILE = os.path.join(BASE_DIR, 'predictions.json')
 VISITORS_FILE = os.path.join(BASE_DIR, 'visitors.json')
+SCAMS_FILE = os.path.join(BASE_DIR, 'scams.json')
 
 load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
@@ -73,8 +82,8 @@ app = Flask(
     static_url_path=''
 )
 
-# Request size limit (2 MB max payload to prevent Denial of Service)
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
+# Request size limit (10 MB max payload for document scanning)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 
 # ============================================================================
 # SECRETS MANAGEMENT & CRYPTOGRAPHIC CONFIGURATION
@@ -127,6 +136,7 @@ else:
 users_lock = threading.Lock()
 predictions_lock = threading.Lock()
 visitors_lock = threading.Lock()
+scams_lock = threading.Lock()
 otp_lock = threading.Lock()
 otp_store = {}  # In-memory thread-safe OTP verification cache
 
@@ -759,6 +769,7 @@ detector = JobFraudDetector()
 # ============================================================================
 users_collection = load_json_safe(USERS_FILE, [])
 predictions_collection = load_json_safe(PREDICTIONS_FILE, [])
+scams_collection = load_json_safe(SCAMS_FILE, [])
 
 # ============================================================================
 # API ROUTES
@@ -1274,6 +1285,492 @@ def analytics():
         return jsonify({"error": "An error occurred retrieving analytics."}), 500
 
 # ============================================================================
+# SSRF PROTECTION & URL FETCHING
+# ============================================================================
+BLOCKED_IP_NETWORKS = [
+    ipaddress.ip_network('127.0.0.0/8'),
+    ipaddress.ip_network('10.0.0.0/8'),
+    ipaddress.ip_network('172.16.0.0/12'),
+    ipaddress.ip_network('192.168.0.0/16'),
+    ipaddress.ip_network('169.254.0.0/16'),
+    ipaddress.ip_network('0.0.0.0/8'),
+    ipaddress.ip_network('100.64.0.0/10'),
+    ipaddress.ip_network('198.18.0.0/15'),
+    ipaddress.ip_network('::1/128'),
+    ipaddress.ip_network('fc00::/7'),
+    ipaddress.ip_network('fe80::/10'),
+]
+
+def is_safe_external_url(url_str: str) -> tuple:
+    """Validate URL against SSRF attacks (blocks private networks, localhost, cloud metadata)"""
+    try:
+        parsed = urllib.parse.urlparse(url_str.strip())
+        if parsed.scheme not in ('http', 'https'):
+            return False, "Only standard HTTP and HTTPS URLs are supported."
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "Invalid URL hostname."
+
+        # Block localhost, cloud metadata, and container hostnames
+        if hostname.lower() in {'localhost', 'metadata.google.internal', 'instance-data', '169.254.169.254'}:
+            return False, "Access to private/internal domain is forbidden."
+
+        # Resolve hostname to IPv4/IPv6
+        addr_info = socket.getaddrinfo(hostname, None)
+        if not addr_info:
+            return False, "Could not resolve hostname."
+
+        for item in addr_info:
+            ip_str = item[4][0]
+            ip_obj = ipaddress.ip_address(ip_str)
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_reserved or ip_obj.is_link_local:
+                return False, f"Access to private/internal IP address ({ip_str}) is restricted."
+            for net in BLOCKED_IP_NETWORKS:
+                if ip_obj in net:
+                    return False, f"Access to restricted IP range ({ip_str}) is blocked."
+
+        return True, ""
+    except Exception as e:
+        return False, f"URL validation failed: {str(e)}"
+
+# ============================================================================
+# OFFER LETTER FRAUD DETECTION HEURISTICS
+# ============================================================================
+FEE_KEYWORDS_REGEX = re.compile(
+    r'\b(?:'
+    r'registration\s+fee|training\s+fee|security\s+deposit|laptop\s+deposit|caution\s+deposit|'
+    r'courier\s+charges?|stamp\s+paper|refundable\s+(?:fee|deposit|amount)|processing\s+fee|'
+    r'documentation\s+fee|medical\s+(?:checkup|test)\s+fee|id\s+card\s+fee|uniform\s+fee|'
+    r'bank\s+verification\s+fee|joining\s+kit\s+charge|pay\s+(?:rs\.?|inr|₹|\$)\s*\d+|'
+    r'deposit\s+(?:rs\.?|inr|₹|\$)\s*\d+|send\s+money|transfer\s+to\s+upi|gpay|phonepe|paytm'
+    r')\b',
+    re.IGNORECASE
+)
+
+FREE_EMAIL_DOMAINS = {'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'rediffmail.com', 'aol.com', 'mail.com', 'yopmail.com', 'protonmail.com'}
+TOP_MNCS = {'tcs', 'tata consultancy services', 'infosys', 'wipro', 'hcl', 'cognizant', 'accenture', 'google', 'microsoft', 'amazon', 'ibm', 'capgemini', 'tech mahindra', 'zoho', 'oracle', 'deloitte', 'l&t', 'larsentoubro'}
+
+def analyze_offer_letter_text(raw_text: str) -> dict:
+    """Deep forensic inspection of offer letter document text"""
+    clean_text = raw_text[:30000]
+    text_lower = clean_text.lower()
+
+    red_flags = []
+    green_flags = []
+    risk_score = 0
+
+    # 1. Look for fee demands
+    fee_matches = list(set(FEE_KEYWORDS_REGEX.findall(text_lower)))
+    if fee_matches:
+        risk_score += 45
+        red_flags.append(f"Financial demand detected: References upfront payment/deposit keywords ({', '.join(fee_matches[:4])})")
+    else:
+        green_flags.append("No upfront registration, security deposit, or processing fee demands found.")
+
+    # 2. Extract emails & check domains
+    found_emails = list(set(re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', clean_text)))
+    free_mail_detected = False
+    for em in found_emails:
+        domain = em.split('@')[-1].lower()
+        if domain in FREE_EMAIL_DOMAINS:
+            free_mail_detected = True
+            break
+
+    # Check if text mentions a top MNC
+    mnc_mentioned = [mnc for mnc in TOP_MNCS if mnc in text_lower]
+    if free_mail_detected:
+        if mnc_mentioned:
+            risk_score += 40
+            red_flags.append(f"Impersonation Alert: Mentions '{mnc_mentioned[0].upper()}' but uses public webmail ({found_emails[0]}) instead of verified enterprise domain.")
+        else:
+            risk_score += 20
+            red_flags.append(f"Contact email uses free public webmail ({found_emails[0]}) rather than corporate domain.")
+    elif found_emails:
+        green_flags.append(f"Uses corporate email domain ({found_emails[0]}).")
+
+    # 3. Urgency and threats
+    urgent_keywords = ['within 24 hours', 'immediate payment', 'legal action', 'court notice', 'police complaint', 'forfeit offer', 'non-refundable']
+    urgent_found = [uk for uk in urgent_keywords if uk in text_lower]
+    if urgent_found:
+        risk_score += 20
+        red_flags.append(f"High-pressure / coercive language detected: '{', '.join(urgent_found)}'")
+
+    # 4. CIN Check
+    cin_matches = re.findall(r'[LUu][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}', clean_text)
+    detected_cin = cin_matches[0].upper() if cin_matches else None
+    if detected_cin:
+        cin_status, cin_name = check_cin_registry(detected_cin)
+        if cin_status is True:
+            risk_score = max(0, risk_score - 25)
+            green_flags.append(f"Valid Government MCA Corporate CIN ({detected_cin}) registered to '{cin_name}'")
+        elif cin_status == 'UNVERIFIED_REGIONAL':
+            green_flags.append(f"Valid 21-character MCA CIN format ({detected_cin}) detected")
+        else:
+            red_flags.append(f"CIN ({detected_cin}) failed official MCA verification")
+    else:
+        red_flags.append("No Government Corporate Identification Number (CIN) found in document")
+
+    # 5. Extract Company Name & Job Title heuristic
+    lines = [l.strip() for l in clean_text.split('\n') if l.strip()]
+    extracted_company = ""
+    extracted_title = ""
+    for line in lines[:10]:
+        if len(line) < 60 and any(w in line.lower() for w in ['ltd', 'private', 'pvt', 'inc', 'technologies', 'solutions', 'corporation', 'services', 'systems', 'consultancy', 'enterprises']):
+            extracted_company = line
+            break
+    if not extracted_company and lines:
+        extracted_company = lines[0][:50]
+
+    for line in lines[:15]:
+        if any(w in line.lower() for w in ['offer', 'position', 'role', 'designation', 'appointment', 'developer', 'engineer', 'analyst', 'manager', 'executive', 'assistant', 'intern']):
+            extracted_title = line[:60]
+            break
+
+    # 6. Extract salary if any
+    salary_match = re.findall(r'(?:ctc|salary|stipend|package|inr|rs\.?|₹)\s*[:\-]?\s*([0-9,]+(?:\s*(?:lpa|per\s+month|pm|per\s+annum|lac|lakh))?)', clean_text, re.IGNORECASE)
+    extracted_salary = salary_match[0] if salary_match else "Not explicitly specified"
+
+    # ML Classifier run
+    ml_result = detector.predict_record(
+        company_name=extracted_company or "Offer Letter Issuer",
+        title=extracted_title or "Job Candidate",
+        description=clean_text[:4000],
+        email=found_emails[0] if found_emails else '',
+        cin=detected_cin or ''
+    )
+
+    if ml_result['prediction'] == 'FAKE':
+        risk_score = max(risk_score, int(ml_result['suspicious_score'] * 9))
+
+    final_risk_score = min(100, max(0, risk_score))
+    legitimacy_score = 100 - final_risk_score
+
+    if final_risk_score >= 60:
+        verdict = "HIGH_RISK_FRAUD"
+        status_label = "SUSPECTED FAKE OFFER"
+    elif final_risk_score >= 30:
+        verdict = "SUSPICIOUS"
+        status_label = "PROCEED WITH CAUTION"
+    else:
+        verdict = "GENUINE"
+        status_label = "LIKELY LEGITIMATE"
+
+    recommendations = []
+    if final_risk_score >= 50:
+        recommendations.append("❌ DO NOT transfer any money or provide UPI payments for training, laptop, or document verification.")
+        recommendations.append("📞 Contact the company directly through their official website contact page (not numbers on the letter).")
+        recommendations.append("🛡️ File a complaint on Cyber Crime Portal (cybercrime.gov.in) if payment was demanded.")
+    else:
+        recommendations.append("✅ Verify salary structure, probation period, and official joining location.")
+        recommendations.append("✅ Confirm with HR from an official company email address.")
+
+    return {
+        "verdict": verdict,
+        "status_label": status_label,
+        "legitimacy_score": legitimacy_score,
+        "risk_score": final_risk_score,
+        "extracted_details": {
+            "company_name": extracted_company or "Unknown Entity",
+            "job_title": extracted_title or "Position Not Specified",
+            "emails": found_emails,
+            "cin": detected_cin or "Not Found",
+            "salary": extracted_salary,
+            "char_count": len(clean_text)
+        },
+        "red_flags": red_flags,
+        "green_flags": green_flags,
+        "recommendations": recommendations,
+        "raw_text_preview": clean_text[:500] + ("..." if len(clean_text) > 500 else "")
+    }
+
+# ============================================================================
+# NEW FEATURE ROUTES: OFFER SCANNER, URL FETCHER, SCAM ALERT BOARD
+# ============================================================================
+
+@app.route('/api/scan-offer-letter', methods=['POST'])
+def scan_offer_letter():
+    """Scan uploaded offer letter PDF document or pasted text for fraud patterns"""
+    rate_err = apply_rate_limit(max_requests=15, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        extracted_text = ""
+        filename = "pasted_text"
+
+        # Check if file was uploaded in multipart/form-data
+        if 'file' in request.files:
+            file_obj = request.files['file']
+            filename = sanitize_text(file_obj.filename or 'document.pdf', max_len=100)
+            file_bytes = file_obj.read()
+            if len(file_bytes) == 0:
+                return jsonify({"error": "Uploaded file is empty."}), 400
+
+            if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
+                try:
+                    pdf_reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+                    pages_text = []
+                    for page in pdf_reader.pages[:10]: # Max 10 pages
+                        txt = page.extract_text() or ""
+                        pages_text.append(txt)
+                    extracted_text = "\n".join(pages_text).strip()
+                except Exception as pdf_err:
+                    logger.warning(f"pypdf extraction error: {pdf_err}")
+                    return jsonify({"error": "Failed to extract text from PDF document. Please ensure file is not password protected."}), 400
+            else:
+                # Text or markdown file
+                try:
+                    extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
+                except Exception:
+                    extracted_text = ""
+        else:
+            # Check JSON body or form data
+            data = request.get_json(silent=True) or request.form
+            extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
+
+        if not extracted_text or len(extracted_text) < 15:
+            return jsonify({"error": "Could not find sufficient readable text in the offer letter. Please paste the offer letter text directly."}), 400
+
+        analysis = analyze_offer_letter_text(extracted_text)
+        analysis['filename'] = filename
+        analysis['scanned_at'] = datetime.now().isoformat()
+
+        return jsonify(analysis)
+    except Exception as e:
+        logger.error(f"Error in /api/scan-offer-letter: {e}")
+        return jsonify({"error": "An error occurred during document forensic scanning."}), 500
+
+@app.route('/api/fetch-job-url', methods=['POST'])
+def fetch_job_url():
+    """Auto-extract Job Title, Company Name, and Description from LinkedIn/Naukri/Indeed/Career URL"""
+    rate_err = apply_rate_limit(max_requests=10, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Valid JSON payload required."}), 400
+
+        target_url = sanitize_text(data.get('url', ''), max_len=1000).strip()
+        if not target_url:
+            return jsonify({"error": "Job posting URL is required."}), 400
+
+        is_safe, err_msg = is_safe_external_url(target_url)
+        if not is_safe:
+            return jsonify({"error": f"Security restriction: {err_msg}"}), 400
+
+        req = urllib.request.Request(
+            target_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+            }
+        )
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            html_bytes = response.read(1024 * 1024) # Read max 1MB
+            html_content = html_bytes.decode('utf-8', errors='ignore')
+
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Remove scripts, styles, nav, footer
+        for elem in soup(['script', 'style', 'noscript', 'header', 'footer', 'nav']):
+            elem.extract()
+
+        # Extract Page Title & Meta Description
+        page_title = soup.title.string.strip() if soup.title and soup.title.string else ""
+        og_title = ""
+        og_desc = ""
+        og_site = ""
+
+        og_title_meta = soup.find('meta', property='og:title') or soup.find('meta', attrs={'name': 'og:title'})
+        if og_title_meta and og_title_meta.get('content'):
+            og_title = og_title_meta['content'].strip()
+
+        og_desc_meta = soup.find('meta', property='og:description') or soup.find('meta', attrs={'name': 'description'})
+        if og_desc_meta and og_desc_meta.get('content'):
+            og_desc = og_desc_meta['content'].strip()
+
+        og_site_meta = soup.find('meta', property='og:site_name')
+        if og_site_meta and og_site_meta.get('content'):
+            og_site = og_site_meta['content'].strip()
+
+        # Extract Company & Job Title heuristic from titles
+        title_source = og_title or page_title
+        extracted_company = ""
+        extracted_title = ""
+
+        # Pattern: "Job Title at Company" or "Company hiring Job Title in Location"
+        at_match = re.search(r'^(.*?)\s+(?:at|@|hiring for|hiring)\s+(.*?)(?:\s+in\s+.*|\s*[-|–].*)?$', title_source, re.IGNORECASE)
+        if at_match:
+            extracted_title = at_match.group(1).strip()
+            extracted_company = at_match.group(2).strip()
+        else:
+            # Fallback split by delimiters
+            parts = re.split(r'[-|–•:]', title_source)
+            if len(parts) >= 2:
+                extracted_title = parts[0].strip()
+                extracted_company = parts[1].strip()
+            else:
+                extracted_title = title_source[:80]
+                extracted_company = og_site or urllib.parse.urlparse(target_url).netloc.replace('www.', '').split('.')[0].capitalize()
+
+        # Extract main body text
+        main_content = ""
+        main_tag = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'job-description|description|details|posting', re.I))
+        if main_tag:
+            main_content = main_tag.get_text(separator='\n', strip=True)
+        else:
+            main_content = soup.get_text(separator='\n', strip=True)
+
+        clean_desc = "\n".join([line for line in main_content.split('\n') if len(line.strip()) > 3])
+        if len(clean_desc) > 3000:
+            clean_desc = clean_desc[:3000]
+
+        if not clean_desc and og_desc:
+            clean_desc = og_desc
+
+        parsed_domain = urllib.parse.urlparse(target_url).netloc
+        website_url = f"https://{parsed_domain}"
+
+        # Extract any email
+        emails_found = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', main_content)
+        contact_email = emails_found[0] if emails_found else ""
+
+        return jsonify({
+            "url": target_url,
+            "company_name": extracted_company[:100],
+            "title": extracted_title[:100],
+            "description": clean_desc[:4000],
+            "email": contact_email,
+            "website": website_url,
+            "status": "success"
+        })
+    except Exception as e:
+        logger.error(f"Error in /api/fetch-job-url: {e}")
+        return jsonify({"error": f"Failed to auto-fetch job details: {str(e)}"}), 500
+
+@app.route('/api/scams', methods=['GET'])
+def get_scams():
+    """Retrieve verified and community-reported recruitment scams with category filtering and search"""
+    rate_err = apply_rate_limit(max_requests=60, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        q = sanitize_text(request.args.get('q', ''), max_len=100).lower().strip()
+        category = sanitize_text(request.args.get('category', ''), max_len=50).strip()
+
+        with scams_lock:
+            all_scams = list(scams_collection)
+
+        results = all_scams
+        if category and category.lower() not in {'all', 'all categories'}:
+            results = [s for s in results if s.get('scam_type', '').lower() == category.lower()]
+
+        if q:
+            results = [
+                s for s in results
+                if q in s.get('company_name', '').lower()
+                or q in s.get('job_title', '').lower()
+                or q in s.get('description', '').lower()
+                or q in s.get('contact_info', '').lower()
+            ]
+
+        # Sort by votes descending, then date
+        results = sorted(results, key=lambda s: (s.get('votes', 0), s.get('date', '')), reverse=True)
+
+        return jsonify({
+            "total": len(results),
+            "scams": results
+        })
+    except Exception as e:
+        logger.error(f"Error in /api/scams: {e}")
+        return jsonify({"error": "Failed to retrieve scams feed."}), 500
+
+@app.route('/api/scams/report', methods=['POST'])
+def report_scam():
+    """Submit a new recruitment fraud / scam incident to the community alert board"""
+    rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Valid JSON payload required."}), 400
+
+        company_name = sanitize_text(data.get('company_name', ''), max_len=150).strip()
+        job_title = sanitize_text(data.get('job_title', ''), max_len=150).strip()
+        scam_type = sanitize_text(data.get('scam_type', 'Other'), max_len=50).strip()
+        description = sanitize_text(data.get('description', ''), max_len=2000).strip()
+        contact_info = sanitize_text(data.get('contact_info', ''), max_len=200).strip()
+        demanded_amount = sanitize_text(data.get('demanded_amount', ''), max_len=50).strip()
+        reported_by = sanitize_text(data.get('reported_by', 'Anonymous Reporter'), max_len=100).strip()
+
+        if not company_name or len(company_name) < 2:
+            return jsonify({"error": "Suspect Company Name is required."}), 400
+        if not description or len(description) < 10:
+            return jsonify({"error": "Please provide a detailed scam description (minimum 10 characters)."}), 400
+
+        new_scam = {
+            "id": f"scam-{int(time.time() * 1000)}",
+            "company_name": company_name,
+            "job_title": job_title or "Position Not Specified",
+            "scam_type": scam_type or "General Fraud",
+            "description": description,
+            "contact_info": contact_info or "Not provided",
+            "demanded_amount": demanded_amount or "N/A",
+            "reported_by": reported_by or "Anonymous Reporter",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "votes": 1,
+            "verified_fraud": True if any(w in description.lower() for w in ['deposit', 'fee', 'telegram', 'upi', 'gpay', 'stamp paper', 'fake']) else False
+        }
+
+        with scams_lock:
+            scams_collection.insert(0, new_scam)
+            atomic_save_json(SCAMS_FILE, scams_collection)
+
+        return jsonify({
+            "message": "Scam incident successfully published to community alert board!",
+            "scam": new_scam
+        })
+    except Exception as e:
+        logger.error(f"Error in /api/scams/report: {e}")
+        return jsonify({"error": "Failed to submit scam report."}), 500
+
+@app.route('/api/scams/<scam_id>/vote', methods=['POST'])
+def vote_scam(scam_id):
+    """Upvote / confirm a reported scam to increase visibility and warn more job seekers"""
+    rate_err = apply_rate_limit(max_requests=20, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        clean_id = sanitize_text(scam_id, max_len=50).strip()
+        with scams_lock:
+            scam = next((s for s in scams_collection if s.get('id') == clean_id), None)
+            if not scam:
+                return jsonify({"error": "Scam alert record not found."}), 404
+
+            scam['votes'] = scam.get('votes', 0) + 1
+            if scam['votes'] >= 5:
+                scam['verified_fraud'] = True
+            atomic_save_json(SCAMS_FILE, scams_collection)
+            updated_votes = scam['votes']
+
+        return jsonify({
+            "message": "Vote recorded. Thank you for protecting the job seeker community!",
+            "votes": updated_votes
+        })
+    except Exception as e:
+        logger.error(f"Error in /api/scams/{scam_id}/vote: {e}")
+        return jsonify({"error": "Failed to register vote."}), 500
+
+# ============================================================================
 # APPLICATION ENTRYPOINT
 # ============================================================================
 if __name__ == '__main__':
@@ -1283,6 +1780,7 @@ if __name__ == '__main__':
     logger.info("SAFE HIRE: Secure Fake Company & Job Detection Server")
     logger.info(f"Registered users in database: {len(users_collection)}")
     logger.info(f"Logged verifications in database: {len(predictions_collection)}")
+    logger.info(f"Known scam alerts in database: {len(scams_collection)}")
     logger.info(f"Listening on http://{host}:{port}")
     logger.info("=" * 60)
     app.run(debug=False, port=port, host=host)

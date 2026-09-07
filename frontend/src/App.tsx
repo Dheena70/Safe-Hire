@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { AuthResponse, getMe, getVisitorCount } from './services/api';
 import AuthForm from './components/AuthForm';
 import VerificationForm from './components/VerificationForm';
+import { OfferLetterScanner } from './components/OfferLetterScanner';
+import { CommunityScamBoard } from './components/CommunityScamBoard';
 import AdminDashboard from './components/AdminDashboard';
 import shieldLogo from './assets/safe-hire-shield.png';
 
 function App() {
   const [user, setUser] = useState<AuthResponse | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'scam-board'>('verify');
   const [checkingSession, setCheckingSession] = useState(true);
   const [visitorCount, setVisitorCount] = useState(0);
 
@@ -89,7 +92,7 @@ function App() {
                   SAFE HIRE
                 </span>
                 <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-full">
-                  AI Core v2.0
+                  AI Core v2.2
                 </span>
               </div>
 
@@ -145,13 +148,58 @@ function App() {
               </button>
             </div>
           </div>
+
+          {/* Secondary Sub-Navbar Tabs (Only in user view) */}
+          {!showAdmin && (
+            <div className="flex items-center gap-2 border-t border-slate-800/60 py-2.5 overflow-x-auto scrollbar-none">
+              <button
+                onClick={() => setActiveTab('verify')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                  activeTab === 'verify'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                <span>🎯</span>
+                <span>Job Legitimacy Verification</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('offer-scan')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                  activeTab === 'offer-scan'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                <span>📄</span>
+                <span>Offer Letter PDF Scanner</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('scam-board')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                  activeTab === 'scam-board'
+                    ? 'bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-md shadow-rose-500/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                <span>🚨</span>
+                <span>Community Scam Alert Board</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Main App Content */}
-      <main className="relative">
+      <main className="relative py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
         {showAdmin && isAdmin ? (
           <AdminDashboard token={user.access_token} />
+        ) : activeTab === 'offer-scan' ? (
+          <OfferLetterScanner />
+        ) : activeTab === 'scam-board' ? (
+          <CommunityScamBoard />
         ) : (
           <VerificationForm />
         )}
@@ -161,3 +209,4 @@ function App() {
 }
 
 export default App;
+
