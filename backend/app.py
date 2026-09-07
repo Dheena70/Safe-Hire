@@ -181,8 +181,18 @@ def apply_rate_limit(max_requests: int, window_seconds: int = 60):
     return None
 
 # ============================================================================
-# SECURITY HTTP HEADERS HOOK
+# SECURITY HTTP HEADERS & PREFLIGHT HOOKS
 # ============================================================================
+@app.before_request
+def handle_preflight():
+    """Handle CORS preflight OPTIONS requests before routing"""
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        return response
+
 @app.after_request
 def apply_security_headers(response):
     """Inject defense-in-depth HTTP security headers on all responses"""
@@ -775,29 +785,8 @@ scams_collection = load_json_safe(SCAMS_FILE, [])
 # API ROUTES
 # ============================================================================
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_frontend(path):
-    """Serve React frontend static build safely or fallback to index.html / status"""
-    safe_path = os.path.normpath(path).lstrip(r'\/')
-    target_file = os.path.join(FRONTEND_BUILD_DIR, safe_path)
-    
-    # Path traversal protection: Ensure target is within FRONTEND_BUILD_DIR
-    if safe_path and os.path.exists(target_file) and target_file.startswith(FRONTEND_BUILD_DIR):
-        return send_from_directory(FRONTEND_BUILD_DIR, safe_path)
-    
-    index_file = os.path.join(FRONTEND_BUILD_DIR, 'index.html')
-    if os.path.exists(index_file):
-        return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')
-    
-    return jsonify({
-        "message": "SAFE HIRE API is running!",
-        "version": "2.2.0",
-        "features": ["ML Ensemble", "MCA Registry", "CIN Verification", "Rate Limiting", "Security Hardening"],
-        "status": "online"
-    })
-
 @app.route('/api/visitors', methods=['GET', 'POST'])
+@app.route('/visitors', methods=['GET', 'POST'])
 def visitors():
     """Get or increment visitor count with rate limiting and thread safety"""
     rate_err = apply_rate_limit(max_requests=20, window_seconds=60)
@@ -815,6 +804,7 @@ def visitors():
         return jsonify({"visitor_count": count})
 
 @app.route('/predict', methods=['POST'])
+@app.route('/api/predict', methods=['POST'])
 def predict():
     """Analyze company or job posting legitimacy with rate limiting & server validation"""
     rate_err = apply_rate_limit(max_requests=30, window_seconds=60)
@@ -880,6 +870,7 @@ def predict():
         return jsonify({"error": "An error occurred while processing the verification request."}), 500
 
 @app.route('/auth/register', methods=['POST'])
+@app.route('/api/auth/register', methods=['POST'])
 def register():
     """Register a new user account with rate limiting & password validation"""
     rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
@@ -930,6 +921,7 @@ def register():
         return jsonify({"error": "An error occurred during account registration."}), 500
 
 @app.route('/auth/login', methods=['POST'])
+@app.route('/api/auth/login', methods=['POST'])
 def login():
     """Authenticate a user and return a JWT access token with brute force rate limiting"""
     rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
@@ -1068,6 +1060,7 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         return False
 
 @app.route('/auth/send-otp', methods=['POST'])
+@app.route('/api/auth/send-otp', methods=['POST'])
 def send_otp():
     """Generate and dispatch a cryptographically secure 6-digit OTP for Email or Phone"""
     rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
@@ -1153,6 +1146,8 @@ def send_otp():
 
 @app.route('/auth/verify-otp-reset', methods=['POST'])
 @app.route('/auth/reset-password', methods=['POST'])
+@app.route('/api/auth/verify-otp-reset', methods=['POST'])
+@app.route('/api/auth/reset-password', methods=['POST'])
 def verify_otp_reset():
     """Verify 6-digit OTP and reset user password"""
     rate_err = apply_rate_limit(max_requests=5, window_seconds=60)
@@ -1225,6 +1220,7 @@ def verify_otp_reset():
         return jsonify({"error": "An error occurred while resetting the password."}), 500
 
 @app.route('/auth/me', methods=['GET'])
+@app.route('/api/auth/me', methods=['GET'])
 @jwt_required()
 def me():
     """Return profile details for current authenticated user"""
@@ -1246,6 +1242,7 @@ def me():
         return jsonify({"error": "An error occurred retrieving user profile."}), 500
 
 @app.route('/admin/analytics', methods=['GET'])
+@app.route('/api/admin/analytics', methods=['GET'])
 @jwt_required()
 def analytics():
     """Get comprehensive admin analytics (Restricted to Administrator role)"""
@@ -1769,6 +1766,31 @@ def vote_scam(scam_id):
     except Exception as e:
         logger.error(f"Error in /api/scams/{scam_id}/vote: {e}")
         return jsonify({"error": "Failed to register vote."}), 500
+
+# ============================================================================
+# FRONTEND CATCH-ALL STATIC ROUTE (MUST BE LAST)
+# ============================================================================
+@app.route('/', defaults={'path': ''}, methods=['GET'])
+@app.route('/<path:path>', methods=['GET'])
+def serve_frontend(path):
+    """Serve React frontend static build safely or fallback to index.html / status"""
+    safe_path = os.path.normpath(path).lstrip(r'\/')
+    target_file = os.path.join(FRONTEND_BUILD_DIR, safe_path)
+    
+    # Path traversal protection: Ensure target is within FRONTEND_BUILD_DIR
+    if safe_path and os.path.exists(target_file) and target_file.startswith(FRONTEND_BUILD_DIR):
+        return send_from_directory(FRONTEND_BUILD_DIR, safe_path)
+    
+    index_file = os.path.join(FRONTEND_BUILD_DIR, 'index.html')
+    if os.path.exists(index_file):
+        return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')
+    
+    return jsonify({
+        "message": "SAFE HIRE API is running!",
+        "version": "2.2.0",
+        "features": ["ML Ensemble", "MCA Registry", "CIN Verification", "Rate Limiting", "Security Hardening", "Offer Scanner", "Scam Board"],
+        "status": "online"
+    })
 
 # ============================================================================
 # APPLICATION ENTRYPOINT
