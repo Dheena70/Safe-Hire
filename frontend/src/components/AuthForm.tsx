@@ -100,6 +100,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         const response = await loginUser(loginData);
         onAuthSuccess(response);
       } else if (authMode === 'register') {
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match. Please make sure both passwords match.');
+          setLoading(false);
+          return;
+        }
         const registerData: RegisterRequest = {
           name: formData.name,
           email: formData.email,
@@ -457,11 +462,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               </div>
             )}
 
-            {/* Confirm Password in Verify OTP */}
-            {authMode === 'forgot' && otpStep === 'verify_otp' && (
+            {/* Confirm Password in Register & Verify OTP */}
+            {(authMode === 'register' || (authMode === 'forgot' && otpStep === 'verify_otp')) && (
               <div>
                 <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Confirm New Password
+                  {authMode === 'forgot' ? 'Confirm New Password' : 'Confirm Password'}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400">
@@ -477,7 +482,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
-                    placeholder="Repeat new password"
+                    placeholder={authMode === 'forgot' ? 'Repeat new password' : 'Repeat password'}
                   />
                 </div>
               </div>
