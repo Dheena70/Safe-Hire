@@ -1028,6 +1028,8 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         </body>
         </html>
         """
+        plain_text = f"SAFE HIRE Verification Code: {otp_code}\n\nYour 6-digit password reset verification code is: {otp_code}\n\nThis code is valid for 2 minutes. Please do not share this code with anyone.\n\nSAFE HIRE - AI Company & Recruitment Fraud Defense"
+        msg_alternative.attach(MIMEText(plain_text, 'plain'))
         msg_alternative.attach(MIMEText(html_content, 'html'))
 
         if has_logo:
@@ -1108,9 +1110,9 @@ def send_otp():
             if user.get('phone'):
                 otp_store[normalize_phone(user['phone'])] = otp_store[lookup_key]
 
-        # Dispatch via Email (if email method or user has email)
+        # Dispatch via Email asynchronously in background thread for fast UI response
         if '@' in lookup_key:
-            send_email_otp(lookup_key, otp_val)
+            threading.Thread(target=send_email_otp, args=(lookup_key, otp_val), daemon=True).start()
 
         masked_target = lookup_key
         if method == 'phone' or ('@' not in identifier and any(c.isdigit() for c in identifier)):
