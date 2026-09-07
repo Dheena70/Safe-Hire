@@ -19,6 +19,7 @@ import tempfile
 from collections import defaultdict
 from datetime import datetime, timedelta
 import smtplib
+import email.utils
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -985,65 +986,54 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         logger.info(f"[DEV SERVER LOG] OTP for {to_email} -> {otp_code} (Configure SMTP in .env for real email delivery)")
         return False
     try:
-        msg_root = MIMEMultipart('related')
-        msg_root['Subject'] = "🔐 SAFE HIRE - Password Reset Verification Code"
-        msg_root['From'] = f"SAFE HIRE <{smtp_from}>"
+        msg_root = MIMEMultipart('alternative')
+        msg_root['Subject'] = f"SAFE HIRE security verification code: {otp_code}"
+        msg_root['From'] = email.utils.formataddr(('SAFE HIRE Security', smtp_from))
         msg_root['To'] = to_email
-
-        msg_alternative = MIMEMultipart('alternative')
-        msg_root.attach(msg_alternative)
+        msg_root['Date'] = email.utils.formatdate(localtime=True)
+        msg_root['Message-ID'] = email.utils.make_msgid(domain='gmail.com')
+        msg_root['Reply-To'] = smtp_from
 
         shield_img_path = os.path.join(BASE_DIR, '..', 'frontend', 'src', 'assets', 'safe-hire-shield.png')
         has_logo = os.path.exists(shield_img_path)
 
-        logo_html = '<img src="cid:safehire_logo" alt="SAFE HIRE Logo" style="width: 56px; height: 56px; margin: 0 auto 12px auto; display: block; object-fit: contain;" />' if has_logo else ''
-
-        html_content = f"""
-        <html>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #020617; color: #f8fafc; padding: 30px 15px; margin: 0;">
-          <div style="max-width: 480px; margin: 0 auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 18px; padding: 32px 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); text-align: center;">
-            <div style="margin-bottom: 24px;">
-              {logo_html}
-              <h2 style="color: #38bdf8; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 0.5px;">SAFE HIRE</h2>
-              <p style="color: #64748b; font-size: 12px; margin-top: 5px; font-weight: 500;">AI Company & Recruitment Fraud Defense</p>
-            </div>
-            
-            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-              <h3 style="color: #f1f5f9; font-size: 15px; margin: 0 0 10px 0; font-weight: 600;">Password Reset Verification</h3>
-              <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0;">
-                You requested to reset your account password. Enter this verification code to proceed:
-              </p>
-              
-              <div style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 14px 28px; border-radius: 12px; letter-spacing: 8px; font-size: 30px; font-weight: 900; color: #ffffff; font-family: 'Courier New', monospace; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.35);">
-                {otp_code}
-              </div>
-              
-              <p style="color: #38bdf8; font-size: 12px; margin: 16px 0 0 0; font-weight: 600;">
-                ⏱️ Valid for 2 minutes only
-              </p>
-            </div>
-            
-            <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.4; border-top: 1px solid #1e293b; padding-top: 16px;">
-              If you did not request this password reset, please ignore this email.<br />
-              &copy; 2026 SAFE HIRE Security System. All rights reserved.
-            </p>
-          </div>
-        </body>
-        </html>
-        """
-        plain_text = f"SAFE HIRE Verification Code: {otp_code}\n\nYour 6-digit password reset verification code is: {otp_code}\n\nThis code is valid for 2 minutes. Please do not share this code with anyone.\n\nSAFE HIRE - AI Company & Recruitment Fraud Defense"
-        msg_alternative.attach(MIMEText(plain_text, 'plain'))
-        msg_alternative.attach(MIMEText(html_content, 'html'))
-
-        if has_logo:
-            try:
-                with open(shield_img_path, 'rb') as f:
-                    img = MIMEImage(f.read())
-                    img.add_header('Content-ID', '<safehire_logo>')
-                    img.add_header('Content-Disposition', 'inline', filename='safe-hire-shield.png')
-                    msg_root.attach(img)
-            except Exception as img_err:
-                logger.warning(f"Could not attach inline logo image: {img_err}")
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #020617; color: #f8fafc; padding: 24px 12px; margin: 0;">
+  <div style="max-width: 460px; margin: 0 auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 18px; padding: 28px 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center;">
+    <div style="margin-bottom: 20px;">
+      <h2 style="color: #38bdf8; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">SAFE HIRE</h2>
+      <p style="color: #64748b; font-size: 11px; margin-top: 4px; font-weight: 500;">Recruitment Fraud & Job Security Verification Shield</p>
+    </div>
+    
+    <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; border-radius: 14px; padding: 20px 16px; margin-bottom: 20px;">
+      <h3 style="color: #f1f5f9; font-size: 14px; margin: 0 0 8px 0; font-weight: 600;">Password Reset Verification</h3>
+      <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 0 0 16px 0;">
+        You requested a 6-digit verification code to reset your account password:
+      </p>
+      
+      <div style="display: inline-block; background: linear-gradient(135deg, #0284c7, #06b6d4); padding: 12px 24px; border-radius: 12px; letter-spacing: 8px; font-size: 28px; font-weight: 900; color: #ffffff; font-family: 'Courier New', monospace; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.35);">
+        {otp_code}
+      </div>
+      
+      <p style="color: #38bdf8; font-size: 11px; margin: 14px 0 0 0; font-weight: 600;">
+        Valid for 2 minutes only
+      </p>
+    </div>
+    
+    <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.4; border-top: 1px solid #1e293b; padding-top: 14px;">
+      If you did not request this password reset, please ignore this email.<br />
+      &copy; 2026 SAFE HIRE Security Grid. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>
+"""
+        plain_text = f"Your SAFE HIRE verification code is: {otp_code}\n\nValid for 2 minutes. Do not share with anyone.\n\nSAFE HIRE - Recruitment Fraud & Job Security Shield"
+        
+        msg_root.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+        msg_root.attach(MIMEText(html_content, 'html', 'utf-8'))
 
         if smtp_port == 465 or '465' in str(smtp_port):
             server = smtplib.SMTP_SSL(smtp_server, 465, timeout=10)
@@ -1053,7 +1043,7 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_from, [to_email], msg_root.as_string())
         server.quit()
-        logger.info(f"Successfully sent real verification email with logo to {to_email}")
+        logger.info(f"Successfully sent verified email OTP to {to_email}")
         return True
     except Exception as e:
         logger.error(f"Failed to dispatch email to {to_email} via SMTP: {e}")
