@@ -1042,8 +1042,11 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
             except Exception as img_err:
                 logger.warning(f"Could not attach inline logo image: {img_err}")
 
-        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-        server.starttls()
+        if smtp_port == 465 or '465' in str(smtp_port):
+            server = smtplib.SMTP_SSL(smtp_server, 465, timeout=10)
+        else:
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
+            server.starttls()
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_from, [to_email], msg_root.as_string())
         server.quit()
