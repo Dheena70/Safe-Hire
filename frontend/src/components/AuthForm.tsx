@@ -161,11 +161,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
       <div className="w-full max-w-md relative z-10">
         {/* Main Glass Card */}
-        <div className="backdrop-blur-2xl bg-slate-900/90 border border-slate-700/60 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-cyan-950/30">
+        <div className="backdrop-blur-2xl bg-slate-900/95 border border-slate-700/80 rounded-2xl p-8 sm:p-10 shadow-2xl shadow-cyan-950/30">
           {/* Logo & Header */}
           <div className="text-center mb-8">
             <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-xl shadow-cyan-500/20 mb-4 items-center justify-center">
-              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center p-2">
+              <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center p-2">
                 <img src={shieldLogo} alt="SAFE HIRE" className="w-full h-full object-contain" />
               </div>
             </div>
@@ -179,14 +179,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
           {/* Mode Tabs or Forgot Title */}
           {authMode !== 'forgot' ? (
-            <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-6 text-xs font-semibold">
+            <div className="grid grid-cols-2 p-1 bg-slate-950/90 border border-slate-700/80 rounded-lg mb-6 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => { setAuthMode('login'); setError(null); setNotice(null); }}
                 className={`py-2 rounded-lg transition duration-200 ${
                   authMode === 'login'
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm font-semibold'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
               >
                 Sign In
@@ -196,8 +196,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                 onClick={() => { setAuthMode('register'); setError(null); setNotice(null); }}
                 className={`py-2 rounded-lg transition duration-200 ${
                   authMode === 'register'
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm font-semibold'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
               >
                 Create Account
@@ -224,7 +224,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             {authMode === 'register' && (
               <>
                 <div>
-                  <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  <label htmlFor="name" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Full Name
                   </label>
                   <div className="relative">
@@ -240,14 +240,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                       required
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-600 hover:border-slate-500 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 text-sm transition"
                       placeholder="e.g., Alex Johnson"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  <label htmlFor="phone" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Mobile Phone Number <span className="text-slate-500 lowercase font-normal">(optional)</span>
                   </label>
                   <div className="relative">
@@ -262,7 +262,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                       type="tel"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-600 hover:border-slate-500 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 text-sm transition"
                       placeholder="+91 98765 43210"
                     />
                   </div>
@@ -273,7 +273,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             {/* Email Field */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label htmlFor="email" className="block text-xs font-semibold text-slate-300">
                   Email Address
                 </label>
                 {authMode === 'forgot' && otpStep === 'verify_otp' && (
@@ -300,7 +300,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                   disabled={authMode === 'forgot' && otpStep === 'verify_otp'}
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition disabled:opacity-60"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-600 hover:border-slate-500 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 text-sm transition disabled:opacity-60"
                   placeholder="name@example.com"
                 />
               </div>
@@ -311,15 +311,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center space-x-2">
-                    <label htmlFor="otp" className="block text-xs font-semibold uppercase tracking-wider text-cyan-400">
+                    <label htmlFor="otp" className="block text-xs font-semibold text-cyan-400">
                       6-Digit Verification Code (OTP)
                     </label>
                     {otpCountdown > 0 ? (
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold">
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold">
                         ⏱️ {formatTimer(otpCountdown)}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-300 font-bold">
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-300 font-bold">
                         Expired
                       </span>
                     )}
@@ -342,7 +342,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     required
                     value={formData.otp}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-slate-950/70 border border-cyan-500/60 rounded-xl text-white font-mono tracking-[0.4em] text-xl focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition text-center"
+                    className="w-full px-4 py-2.5 bg-slate-950/90 border border-cyan-500/80 rounded-lg text-white font-mono tracking-[0.4em] text-xl focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 transition text-center"
                   />
                 </div>
               </div>
@@ -352,7 +352,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             {(authMode !== 'forgot' || otpStep === 'verify_otp') && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label htmlFor="password" className="block text-xs font-semibold text-slate-300">
                     {authMode === 'forgot' ? 'New Password' : 'Password'}
                   </label>
                   {authMode === 'login' && (
@@ -378,7 +378,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-600 hover:border-slate-500 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 text-sm transition"
                     placeholder="At least 8 characters"
                   />
                 </div>
@@ -388,7 +388,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             {/* Confirm Password in Register & Verify OTP */}
             {(authMode === 'register' || (authMode === 'forgot' && otpStep === 'verify_otp')) && (
               <div>
-                <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                <label htmlFor="confirmPassword" className="block text-xs font-semibold text-slate-300 mb-1.5">
                   {authMode === 'forgot' ? 'Confirm New Password' : 'Confirm Password'}
                 </label>
                 <div className="relative">
@@ -404,7 +404,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm transition"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/90 border border-slate-600 hover:border-slate-500 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 text-sm transition"
                     placeholder={authMode === 'forgot' ? 'Repeat new password' : 'Repeat password'}
                   />
                 </div>
@@ -412,13 +412,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             )}
 
             {notice && (
-              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-300">
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-300">
                 {notice}
               </div>
             )}
 
             {error && (
-              <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-300">
+              <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-300">
                 {error}
               </div>
             )}
@@ -426,7 +426,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl transition duration-300 shadow-lg shadow-cyan-500/20 flex items-center justify-center text-sm tracking-wide mt-2"
+              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition duration-300 shadow-lg shadow-cyan-500/20 flex items-center justify-center text-sm tracking-wide mt-2"
             >
               {loading ? (
                 <div className="flex items-center space-x-2">
@@ -459,7 +459,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
           {/* Security Features Footnote */}
           <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-            <p className="text-[11px] text-slate-500 flex items-center justify-center space-x-2">
+            <p className="text-xs text-slate-400 font-medium flex items-center justify-center space-x-2">
               <svg className="w-3.5 h-3.5 text-cyan-400 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>

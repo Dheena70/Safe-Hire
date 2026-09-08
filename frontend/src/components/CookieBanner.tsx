@@ -21,11 +21,15 @@ export const CookieBanner: React.FC = () => {
     <div className="fixed bottom-4 left-4 right-4 md:left-8 md:right-auto md:max-w-md z-50 animate-fadeIn">
       <div className="backdrop-blur-xl bg-slate-900/95 border border-slate-700/80 rounded-2xl p-5 shadow-2xl shadow-cyan-950/40 text-slate-200 space-y-3">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🍪</span>
+          <div className="p-2 rounded-lg bg-cyan-950/80 border border-cyan-500/30 text-cyan-400 shrink-0">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
           <div className="space-y-1">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+            <h3 className="text-sm font-semibold text-cyan-400">
               Cookie & Security Storage Notice
-            </h4>
+            </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               We use essential encrypted session storage and security tokens to maintain your verified session and protect against brute-force attacks. No tracking telemetry is sold.
             </p>
@@ -35,13 +39,13 @@ export const CookieBanner: React.FC = () => {
         <div className="flex items-center gap-2 pt-1">
           <button
             onClick={handleAccept}
-            className="flex-1 py-2 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-md shadow-cyan-500/20 transition-all text-center"
+            className="flex-1 py-2 px-4 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-md shadow-cyan-500/20 transition-all text-center"
           >
             Accept Security Storage
           </button>
           <button
             onClick={() => setShowBanner(false)}
-            className="py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-all"
+            className="py-2 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-all"
           >
             Dismiss
           </button>

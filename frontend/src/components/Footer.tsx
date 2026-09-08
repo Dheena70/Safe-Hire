@@ -22,7 +22,7 @@ export const Footer: React.FC<Props> = ({
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 p-0.5 shadow-md shadow-cyan-500/20 flex items-center justify-center">
-                <div className="w-full h-full bg-slate-900 rounded-[6px] flex items-center justify-center p-0.5">
+                <div className="w-full h-full bg-slate-900 rounded-lg flex items-center justify-center p-0.5">
                   <img src={shieldLogo} alt="SAFE HIRE" className="w-full h-full object-contain" />
                 </div>
               </div>
@@ -42,51 +42,78 @@ export const Footer: React.FC<Props> = ({
 
           {/* Col 2: Core Defense Tools */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 font-mono">
+            <h3 className="text-sm font-semibold text-cyan-400">
               Security Engines
-            </h4>
+            </h3>
             <ul className="space-y-2 text-xs">
               {onSelectTab ? (
                 <>
                   <li>
                     <button
                       onClick={() => onSelectTab('verify')}
-                      className="hover:text-cyan-400 transition text-left"
+                      className="text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded-lg"
                     >
-                      🎯 Job Legitimacy Verification
+                      <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      <span>Job Legitimacy Verification</span>
                     </button>
                   </li>
                   <li>
                     <button
                       onClick={() => onSelectTab('offer-scan')}
-                      className="hover:text-cyan-400 transition text-left"
+                      className="text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded-lg"
                     >
-                      📄 Forensic Offer Letter Scanner
+                      <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>Forensic Offer Letter Scanner</span>
                     </button>
                   </li>
                   <li>
                     <button
                       onClick={() => onSelectTab('safe-companies')}
-                      className="hover:text-emerald-400 transition text-left"
+                      className="text-slate-400 hover:text-emerald-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500/50 rounded-lg"
                     >
-                      🏛️ Verified Safe Companies (7.99L MCA)
+                      <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      <span>Verified Safe Companies (7.99L MCA)</span>
                     </button>
                   </li>
                 </>
               ) : (
                 <>
-                  <li className="text-slate-400">🎯 Job Legitimacy Verification</li>
-                  <li className="text-slate-400">📄 Forensic Offer Letter Scanner</li>
-                  <li className="text-slate-400">🏛️ Verified Safe Companies Directory</li>
+                  <li className="text-slate-400 flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>Job Legitimacy Verification</span>
+                  </li>
+                  <li className="text-slate-400 flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Forensic Offer Letter Scanner</span>
+                  </li>
+                  <li className="text-slate-400 flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span>Verified Safe Companies Directory</span>
+                  </li>
                 </>
               )}
               {onTrigger404 && (
                 <li>
                   <button
                     onClick={onTrigger404}
-                    className="text-slate-500 hover:text-slate-300 transition text-[11px] font-mono"
+                    className="text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1.5 text-xs font-mono"
                   >
-                    ⚡ Test 404 Route Screen
+                    <svg className="w-3 h-3 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Test 404 Route Screen</span>
                   </button>
                 </li>
               )}
@@ -95,18 +122,20 @@ export const Footer: React.FC<Props> = ({
 
           {/* Col 3: Official Portals & Helplines */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 font-mono">
+            <h3 className="text-sm font-semibold text-cyan-400">
               National Helplines
-            </h4>
+            </h3>
             <ul className="space-y-2 text-xs">
               <li>
                 <a
                   href="https://cybercrime.gov.in"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-cyan-400 transition flex items-center gap-1.5"
+                  className="text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded-lg"
                 >
-                  <span>🌐</span>
+                  <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
                   <span>National Cyber Crime Portal</span>
                 </a>
               </li>
@@ -115,16 +144,23 @@ export const Footer: React.FC<Props> = ({
                   href="https://www.mca.gov.in"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-cyan-400 transition flex items-center gap-1.5"
+                  className="text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded-lg"
                 >
-                  <span>🏛️</span>
+                  <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                  </svg>
                   <span>Ministry of Corporate Affairs (MCA)</span>
                 </a>
               </li>
               <li className="pt-1">
-                <div className="p-2.5 bg-rose-950/20 border border-rose-500/20 rounded-lg text-rose-300 text-[11px]">
-                  <p className="font-bold">🚨 Emergency Cyber Helpline:</p>
-                  <p className="font-mono font-bold text-rose-400 text-sm mt-0.5">Dial 1930</p>
+                <div className="p-2.5 bg-rose-950/30 border border-rose-500/30 rounded-lg text-rose-300 text-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-rose-300">
+                    <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>Emergency Cyber Helpline:</span>
+                  </div>
+                  <p className="font-mono font-bold text-rose-400 text-sm mt-0.5 pl-5">Dial 1930</p>
                 </div>
               </li>
             </ul>
@@ -132,29 +168,37 @@ export const Footer: React.FC<Props> = ({
 
           {/* Col 4: Legal & Compliance */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 font-mono">
+            <h3 className="text-sm font-semibold text-cyan-400">
               Legal & Compliance
-            </h4>
+            </h3>
             <ul className="space-y-2 text-xs">
               <li>
                 <button
+                  type="button"
+                  aria-haspopup="dialog"
                   onClick={onOpenPrivacy}
-                  className="hover:text-cyan-400 transition text-left flex items-center gap-1.5"
+                  className="text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded-lg text-left"
                 >
-                  <span>🔒</span>
+                  <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
                   <span>Privacy Policy (Zero Data Retention)</span>
                 </button>
               </li>
               <li>
                 <button
+                  type="button"
+                  aria-haspopup="dialog"
                   onClick={onOpenTerms}
-                  className="hover:text-cyan-400 transition text-left flex items-center gap-1.5"
+                  className="text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded-lg text-left"
                 >
-                  <span>⚖️</span>
+                  <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                  </svg>
                   <span>Terms of Service & AI Advisory</span>
                 </button>
               </li>
-              <li className="text-[11px] text-slate-500 leading-normal pt-1">
+              <li className="text-xs text-slate-400 leading-relaxed pt-1">
                 Compliant with India DPDP Act 2023. Real-time document scans are executed in volatile memory and purged immediately.
               </li>
             </ul>
@@ -173,3 +217,4 @@ export const Footer: React.FC<Props> = ({
     </footer>
   );
 };
+
