@@ -5,6 +5,9 @@
   
   **AI-Powered Job Scam & Corporate Legitimacy Verification Platform**
 
+  [![Live App](https://img.shields.io/badge/🌐_Live_App-safe--hire--one.vercel.app-00dfa2?style=for-the-badge)](https://safe-hire-one.vercel.app/)
+  [![Backend API](https://img.shields.io/badge/⚡_API_Server-safe--hire.onrender.com-0070f3?style=for-the-badge)](https://safe-hire.onrender.com/healthz)
+
   [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
   [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
   [![TypeScript](https://img.shields.io/badge/TypeScript-4.9+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
@@ -12,6 +15,11 @@
   [![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML%20Ensemble-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind-Cyber--Glassmorphism-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
   [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+
+  <br />
+  
+  🚀 **Live Application:** [https://safe-hire-one.vercel.app/](https://safe-hire-one.vercel.app/)  
+  ⚡ **Live API Service:** [https://safe-hire.onrender.com/](https://safe-hire.onrender.com/)
 </div>
 
 ---
