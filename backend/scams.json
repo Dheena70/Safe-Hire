@@ -1,5 +1,18 @@
 [
   {
+    "id": "scam-1788877149586",
+    "company_name": "Test Scam Ventures Pvt Ltd",
+    "job_title": "Telegram Review Specialist",
+    "scam_type": "Telegram Task",
+    "description": "Demanded Rs. 5000 crypto deposit to release payout after completing tasks.",
+    "contact_info": "@test_fraud_channel",
+    "demanded_amount": "\u20b95,000",
+    "reported_by": "Security Tester",
+    "date": "2026-09-08",
+    "votes": 2,
+    "verified_fraud": true
+  },
+  {
     "id": "scam-1788793611600",
     "company_name": "Test Scam Ventures Pvt Ltd",
     "job_title": "Telegram Review Specialist",

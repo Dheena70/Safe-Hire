@@ -419,27 +419,39 @@ def load_company_databases():
                 if cin:
                     TN_CIN_MAP[cin] = cname
 
-        # 2. Load Tamil Nadu registry
-        tn_csv_path = os.path.join(DATASETS_DIR, 'tamil_nadu_companies.csv')
-        if os.path.exists(tn_csv_path):
-            logger.info(f"Loading company registry from {os.path.basename(tn_csv_path)}...")
-            df = pd.read_csv(tn_csv_path, low_memory=False, on_bad_lines='skip')
-            cin_col = 'CIN' if 'CIN' in df.columns else None
-            name_col = 'Company Name' if 'Company Name' in df.columns else df.columns[0]
+        # 2. Load South India (TN, KA, TG, KL, AP) registry
+        registry_files = ['south_india_companies.csv', 'tamil_nadu_companies.csv']
+        loaded_any = False
+        for r_file in registry_files:
+            r_csv_path = os.path.join(DATASETS_DIR, r_file)
+            if os.path.exists(r_csv_path):
+                logger.info(f"Loading official company registry from {r_file}...")
+                df = pd.read_csv(r_csv_path, low_memory=False, on_bad_lines='skip')
+                cin_col = 'CIN' if 'CIN' in df.columns else None
+                name_col = 'Company Name' if 'Company Name' in df.columns else df.columns[0]
 
-            for _, row in df[[cin_col, name_col]].dropna(subset=[name_col]).iterrows() if cin_col else df[[name_col]].dropna().iterrows():
-                name = str(row[name_col]).strip()
-                TN_COMPANY_NAMES.add(name.lower())
+                # Fast vectorized extraction for hundreds of thousands of rows
+                valid_names = df[name_col].dropna().astype(str).str.strip()
+                TN_COMPANY_NAMES.update(valid_names.str.lower().tolist())
+
                 if cin_col:
-                    cin_val = str(row[cin_col]).strip().upper()
-                    if cin_val and cin_val != 'NAN':
-                        TN_CIN_MAP[cin_val] = name
+                    valid_cins = df.dropna(subset=[cin_col, name_col])
+                    cins = valid_cins[cin_col].astype(str).str.strip().str.upper()
+                    names = valid_cins[name_col].astype(str).str.strip()
+                    # Filter out NaN/empty strings
+                    valid_mask = (cins != '') & (cins != 'NAN') & (cins != 'NONE')
+                    cins_clean = cins[valid_mask]
+                    names_clean = names[valid_mask]
+                    TN_CIN_MAP.update(dict(zip(cins_clean, names_clean)))
 
-            logger.info(f"Loaded {len(TN_COMPANY_NAMES)} registered companies ({len(TN_CIN_MAP)} with CIN).")
-            return True
-        else:
+                logger.info(f"Loaded {len(TN_COMPANY_NAMES)} registered companies ({len(TN_CIN_MAP)} with CIN).")
+                loaded_any = True
+                break
+
+        if not loaded_any:
             logger.warning("Company registry file not found.")
             return False
+        return True
     except Exception as e:
         logger.warning(f"Could not load company registry ({e}). Registry checks disabled.")
         return False
