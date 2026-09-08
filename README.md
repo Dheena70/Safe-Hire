@@ -162,19 +162,35 @@ chmod +x start.sh
 
 ---
 
-## ☁️ Cloud Deployment (Render.com)
+## ☁️ Cloud Deployment & Architecture
 
-1. Connect your GitHub repository: [`https://github.com/Dheena70/Safe-Hire`](https://github.com/Dheena70/Safe-Hire)
-2. Create **Web Service**:
-   - **Build Command**: `chmod +x build.sh && ./build.sh`
-   - **Start Command**: `gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
-3. Environment Variables:
-   - `JWT_SECRET_KEY` = `<your-secure-random-key>`
-   - `ADMIN_EMAILS` = `admin@example.com`
-   - `SMTP_SERVER` = `smtp.gmail.com` *(optional for live OTP email delivery)*
-   - `SMTP_PORT` = `587`
-   - `SMTP_USERNAME` = `<your-gmail-address>`
-   - `SMTP_PASSWORD` = `<your-google-app-password>`
+### 1. Frontend: Vercel (0% Sleep · Global Edge CDN)
+- **Live URL**: [https://safe-hire-one.vercel.app/](https://safe-hire-one.vercel.app/)
+- **Framework Preset**: Create React App
+- **Root Directory**: `frontend`
+- **Build Command**: `GENERATE_SOURCEMAP=false npm run build`
+- **Output Directory**: `build`
+- **Integrated Telemetry**: Google Analytics 4 (`G-WV2KZR75ZJ`), Microsoft Clarity (`yf8d69cugl`), Schema.org JSON-LD Structured Data.
+
+### 2. Backend: Render (24/7 Python Web Service)
+- **Live API Endpoint**: [https://safe-hire.onrender.com/](https://safe-hire.onrender.com/)
+- **Health Check**: [https://safe-hire.onrender.com/healthz](https://safe-hire.onrender.com/healthz)
+- **Build Command**: `chmod +x build.sh && ./build.sh`
+- **Start Command**: `gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`
+- **Database Engine**: Compact indexed SQLite (`datasets/south_india_companies.db`) delivering high-throughput queries with an ultra-lightweight **~60MB RAM footprint** (100% stable on Free Tier).
+- **Keep-Alive**: Configured with UptimeRobot automated 10-minute HTTP ping for 24/7 instant response.
+
+---
+
+## 📈 Search Console & Telemetry Integration
+
+| Service | Status | Configuration / ID |
+|---|---|---|
+| **Google Search Console** | ✅ **Verified** | `googleb95b9efc22a41116.html` |
+| **Sitemap XML** | ✅ **Indexed** | `https://safe-hire-one.vercel.app/sitemap.xml` |
+| **Google Analytics (GA4)** | ✅ **Active** | Measurement ID `G-WV2KZR75ZJ` |
+| **Microsoft Clarity** | ✅ **Active** | Project ID `yf8d69cugl` (Heatmaps & Session Replays) |
+| **OpenGraph & Schema.org** | ✅ **Configured** | Rich Search Snippets & WhatsApp/LinkedIn Cards |
 
 ---
 
