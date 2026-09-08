@@ -235,17 +235,17 @@ contracts with official registered corporate sources.
               <span>🏷️</span>
               <span>Official MCA CIN Lookup</span>
             </span>
-            <span className="text-xs font-medium px-3 py-1 bg-slate-800/80 border border-slate-700/70 rounded-lg text-slate-300 flex items-center space-x-1.5">
+            <span className="text-xs font-medium px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-300 flex items-center space-x-1.5 font-semibold">
               <span>🏛️</span>
-              <span>MCA & TN Registry</span>
+              <span>MCA South India Registry (8L+ Entities)</span>
             </span>
             <span className="text-xs font-medium px-3 py-1 bg-slate-800/80 border border-slate-700/70 rounded-lg text-slate-300 flex items-center space-x-1.5">
               <span>🧠</span>
-              <span>NLP TF-IDF Ensemble</span>
+              <span>NLP TF-IDF Ensemble (4 Models)</span>
             </span>
             <span className="text-xs font-medium px-3 py-1 bg-slate-800/80 border border-slate-700/70 rounded-lg text-slate-300 flex items-center space-x-1.5">
-              <span>🚨</span>
-              <span>Scam DB Cross-Check</span>
+              <span>🛡️</span>
+              <span>Fraud Pattern Heuristics</span>
             </span>
           </div>
         </div>

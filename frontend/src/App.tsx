@@ -4,7 +4,6 @@ import AuthForm from './components/AuthForm';
 import VerificationForm from './components/VerificationForm';
 import { OfferLetterScanner } from './components/OfferLetterScanner';
 import { SafeCompanyExplorer } from './components/SafeCompanyExplorer';
-import { CommunityScamBoard } from './components/CommunityScamBoard';
 import AdminDashboard from './components/AdminDashboard';
 import { CookieBanner } from './components/CookieBanner';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
@@ -16,7 +15,7 @@ import shieldLogo from './assets/safe-hire-shield.png';
 function App() {
   const [user, setUser] = useState<AuthResponse | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'safe-companies' | 'scam-board'>('verify');
+  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'safe-companies'>('verify');
   const [selectedSafeCompany, setSelectedSafeCompany] = useState<{ company_name: string; cin?: string } | null>(null);
   const [isNotFound, setIsNotFound] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
@@ -214,18 +213,6 @@ function App() {
                   <span>🏛️</span>
                   <span>Verified Safe Companies (7.99L MCA)</span>
                 </button>
-
-                <button
-                  onClick={() => { setIsNotFound(false); setActiveTab('scam-board'); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-                    activeTab === 'scam-board'
-                      ? 'bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-md shadow-rose-500/20'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                  }`}
-                >
-                  <span>🚨</span>
-                  <span>Community Scam Alert Board</span>
-                </button>
               </div>
             )}
           </div>
@@ -244,13 +231,6 @@ function App() {
               onSelectCompany={(compName, cin) => {
                 setSelectedSafeCompany({ company_name: compName, cin });
                 setActiveTab('verify');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-          ) : activeTab === 'scam-board' ? (
-            <CommunityScamBoard
-              onExploreSafe={() => {
-                setActiveTab('safe-companies');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />

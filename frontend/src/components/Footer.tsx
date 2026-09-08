@@ -4,7 +4,7 @@ import shieldLogo from '../assets/safe-hire-shield.png';
 interface Props {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
-  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'safe-companies' | 'scam-board') => void;
+  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'safe-companies') => void;
   onTrigger404?: () => void;
 }
 
@@ -31,7 +31,7 @@ export const Footer: React.FC<Props> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              India&apos;s pioneering AI-powered recruitment security and offer letter fraud defense engine. Protects jobseekers with MCA real-time validation, NLP heuristics, and scam community intelligence.
+              India&apos;s pioneering AI-powered recruitment security and offer letter fraud defense engine. Protects jobseekers with MCA real-time validation, NLP heuristics, and 8 Lakh+ South Indian registered companies registry.
             </p>
             <div className="space-y-1 text-xs text-slate-400 font-mono">
               <p className="text-slate-300 font-semibold font-sans">Security Response HQ:</p>
@@ -72,21 +72,12 @@ export const Footer: React.FC<Props> = ({
                       🏛️ Verified Safe Companies (7.99L MCA)
                     </button>
                   </li>
-                  <li>
-                    <button
-                      onClick={() => onSelectTab('scam-board')}
-                      className="hover:text-rose-400 transition text-left"
-                    >
-                      🚨 Live Community Scam Alert Board
-                    </button>
-                  </li>
                 </>
               ) : (
                 <>
                   <li className="text-slate-400">🎯 Job Legitimacy Verification</li>
                   <li className="text-slate-400">📄 Forensic Offer Letter Scanner</li>
                   <li className="text-slate-400">🏛️ Verified Safe Companies Directory</li>
-                  <li className="text-slate-400">🚨 Live Community Scam Board</li>
                 </>
               )}
               {onTrigger404 && (
