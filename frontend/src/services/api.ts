@@ -293,4 +293,49 @@ export const getVisitorCount = async (token?: string): Promise<number> => {
   }
 };
 
+export interface SafeCompany {
+  cin: string;
+  company_name: string;
+  state: string;
+  status: string;
+  is_safe: boolean;
+  verified_mca: boolean;
+  badge: string;
+}
+
+export interface SafeCompanySearchResponse {
+  total_matches: number;
+  query: string;
+  state_filter: string;
+  companies: SafeCompany[];
+}
+
+export interface SafeCompanyStatsResponse {
+  total_verified_companies: number;
+  region: string;
+  state_breakdown: Record<string, number>;
+  mca_verified: boolean;
+}
+
+export const searchSafeCompanies = async (
+  q: string = '',
+  state: string = 'All',
+  status: string = 'Active',
+  limit: number = 24
+): Promise<SafeCompanySearchResponse> => {
+  const params = new URLSearchParams();
+  if (q) params.append('q', q);
+  if (state && state !== 'All') params.append('state', state);
+  if (status && status !== 'All') params.append('status', status);
+  params.append('limit', limit.toString());
+
+  const response = await api.get(`/api/companies/search?${params.toString()}`);
+  return response.data;
+};
+
+export const getCompanyStats = async (): Promise<SafeCompanyStatsResponse> => {
+  const response = await api.get('/api/companies/stats');
+  return response.data;
+};
+
 export default api;

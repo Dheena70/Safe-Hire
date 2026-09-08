@@ -3,15 +3,29 @@ import { predictJob, fetchJobUrl, PredictionRequest, PredictionResponse, describ
 import { generateSecurityAuditPDF } from '../utils/pdfGenerator';
 import bgImage from '../assets/safe-hire-bg.png';
 
-const VerificationForm: React.FC = () => {
+interface VerificationFormProps {
+  initialData?: { company_name?: string; cin?: string } | null;
+}
+
+const VerificationForm: React.FC<VerificationFormProps> = ({ initialData }) => {
   const [formData, setFormData] = useState<PredictionRequest>({
-    company_name: '',
+    company_name: initialData?.company_name || '',
     title: '',
     description: '',
     email: '',
     website: '',
-    cin: '',
+    cin: initialData?.cin || '',
   });
+
+  React.useEffect(() => {
+    if (initialData?.company_name) {
+      setFormData((prev) => ({
+        ...prev,
+        company_name: initialData.company_name || prev.company_name,
+        cin: initialData.cin || prev.cin,
+      }));
+    }
+  }, [initialData]);
 
   const [jobUrl, setJobUrl] = useState('');
   const [fetchingUrl, setFetchingUrl] = useState(false);

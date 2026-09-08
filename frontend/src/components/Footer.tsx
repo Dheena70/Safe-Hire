@@ -4,7 +4,7 @@ import shieldLogo from '../assets/safe-hire-shield.png';
 interface Props {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
-  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'scam-board') => void;
+  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'safe-companies' | 'scam-board') => void;
   onTrigger404?: () => void;
 }
 
@@ -66,6 +66,14 @@ export const Footer: React.FC<Props> = ({
                   </li>
                   <li>
                     <button
+                      onClick={() => onSelectTab('safe-companies')}
+                      className="hover:text-emerald-400 transition text-left"
+                    >
+                      🏛️ Verified Safe Companies (7.99L MCA)
+                    </button>
+                  </li>
+                  <li>
+                    <button
                       onClick={() => onSelectTab('scam-board')}
                       className="hover:text-rose-400 transition text-left"
                     >
@@ -77,6 +85,7 @@ export const Footer: React.FC<Props> = ({
                 <>
                   <li className="text-slate-400">🎯 Job Legitimacy Verification</li>
                   <li className="text-slate-400">📄 Forensic Offer Letter Scanner</li>
+                  <li className="text-slate-400">🏛️ Verified Safe Companies Directory</li>
                   <li className="text-slate-400">🚨 Live Community Scam Board</li>
                 </>
               )}

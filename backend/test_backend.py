@@ -6,7 +6,10 @@ import sys
 os.environ['JWT_SECRET_KEY'] = 'test-security-secret-key-for-test-suite-32-chars!'
 os.environ['ADMIN_EMAILS'] = 'admin@example.com,test_admin@example.com'
 
-from app import app, detector, users_collection, predictions_collection, limiter, otp_store, normalize_phone
+from app import (
+    app, detector, users_collection, predictions_collection, limiter,
+    otp_store, normalize_phone, scams_collection, scams_lock, SCAMS_FILE, atomic_save_json
+)
 
 print("=" * 65)
 print("SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.2)")
@@ -311,6 +314,30 @@ assert vote_res.status_code == 200, f"Vote failed: {vote_res.data}"
 assert vote_res.json['votes'] == initial_votes + 1
 print(f"  [PASS] Created scam alert ({scam_id}) and upvoted to {vote_res.json['votes']} votes.")
 
+# Clean up test scam so production scams.json remains unpolluted
+with scams_lock:
+    scams_collection[:] = [s for s in scams_collection if s.get('id') != scam_id]
+    atomic_save_json(SCAMS_FILE, scams_collection)
+
+# 16. Verified Safe Companies MCA Registry Search & Stats API
+print("\n[Test 16] Testing GET /api/companies/search & /api/companies/stats...")
+limiter.requests.clear()
+stats_res = client.get('/api/companies/stats')
+assert stats_res.status_code == 200
+stats_data = stats_res.json
+assert stats_data['total_verified_companies'] >= 700000
+assert 'Tamil Nadu' in stats_data['state_breakdown']
+assert 'Karnataka' in stats_data['state_breakdown']
+print(f"  [PASS] Retrieved registry stats: {stats_data['total_verified_companies']:,} verified entities across South India.")
+
+# Search for Zoho in Tamil Nadu
+search_res = client.get('/api/companies/search?q=Zoho&state=Tamil%20Nadu')
+assert search_res.status_code == 200
+search_data = search_res.json
+assert search_data['total_matches'] >= 1
+assert any('ZOHO' in c['company_name'].upper() for c in search_data['companies'])
+print(f"  [PASS] Verified Safe Company search returned {search_data['total_matches']} MCA match(es) for 'Zoho'.")
+
 print("\n" + "=" * 65)
-print("ALL 15 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]")
+print("ALL 16 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]")
 print("=" * 65)

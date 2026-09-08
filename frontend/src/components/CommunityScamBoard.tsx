@@ -18,7 +18,11 @@ const SCAM_CATEGORIES = [
   'Other',
 ];
 
-export const CommunityScamBoard: React.FC = () => {
+interface CommunityScamBoardProps {
+  onExploreSafe?: () => void;
+}
+
+export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExploreSafe }) => {
   const [scams, setScams] = useState<ScamRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -135,13 +139,25 @@ export const CommunityScamBoard: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={() => setIsReportModalOpen(true)}
-            className="px-5 py-3 rounded-xl font-bold text-xs tracking-wide text-white bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-400 hover:to-orange-400 shadow-lg shadow-rose-500/25 transition-all flex items-center gap-2 shrink-0"
-          >
-            <span>📢</span>
-            <span>Report a Scam</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onExploreSafe && (
+              <button
+                onClick={onExploreSafe}
+                className="px-4 py-3 rounded-xl font-bold text-xs tracking-wide text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center gap-2"
+              >
+                <span>🏛️</span>
+                <span>Search Safe Companies (7.99L)</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="px-5 py-3 rounded-xl font-bold text-xs tracking-wide text-white bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-400 hover:to-orange-400 shadow-lg shadow-rose-500/25 transition-all flex items-center gap-2"
+            >
+              <span>📢</span>
+              <span>Report a Scam</span>
+            </button>
+          </div>
         </div>
       </div>
 

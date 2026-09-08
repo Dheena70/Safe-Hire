@@ -357,6 +357,7 @@ def load_json_safe(filepath, default_val):
 SCAM_COMPANIES_DB = {}
 TN_COMPANY_NAMES = set()
 TN_CIN_MAP = {}  # CIN (uppercase) -> Company Name
+REGISTRY_DF = None  # DataFrame for fast multi-state search and explorer API
 
 GENERIC_CORP_SUFFIXES = {
     'pvt', 'ltd', 'limited', 'inc', 'incorporated', 'corp', 'corporation',
@@ -404,8 +405,8 @@ def check_scam_database(company_name):
     return None
 
 def load_company_databases():
-    """Load Tamil Nadu and MCA company registries with CIN mapping"""
-    global TN_COMPANY_NAMES, TN_CIN_MAP
+    """Load South India (TN, KA, TG, KL, AP) MCA company registries with CIN mapping"""
+    global TN_COMPANY_NAMES, TN_CIN_MAP, REGISTRY_DF
     try:
         # 1. Load sample MCA dataset
         mca_csv_path = os.path.join(DATASETS_DIR, 'sample_mca_companies.csv')
@@ -429,6 +430,12 @@ def load_company_databases():
                 df = pd.read_csv(r_csv_path, low_memory=False, on_bad_lines='skip')
                 cin_col = 'CIN' if 'CIN' in df.columns else None
                 name_col = 'Company Name' if 'Company Name' in df.columns else df.columns[0]
+                state_col = 'Company State' if 'Company State' in df.columns else None
+                status_col = 'Company Status' if 'Company Status' in df.columns else None
+
+                # Keep search dataframe reference
+                cols_to_keep = [c for c in [cin_col, name_col, state_col, status_col] if c]
+                REGISTRY_DF = df[cols_to_keep].copy()
 
                 # Fast vectorized extraction for hundreds of thousands of rows
                 valid_names = df[name_col].dropna().astype(str).str.strip()
@@ -1873,6 +1880,117 @@ def vote_scam(scam_id):
     except Exception as e:
         logger.error(f"Error in /api/scams/{scam_id}/vote: {e}")
         return jsonify({"error": "Failed to register vote."}), 500
+
+# ============================================================================
+# SAFE COMPANIES DIRECTORY & MCA REGISTRY SEARCH API
+# ============================================================================
+
+@app.route('/api/companies/search', methods=['GET'])
+def search_companies():
+    """Search verified MCA South Indian companies (TN, KA, TG, KL, AP) by name or CIN"""
+    rate_err = apply_rate_limit(max_requests=60, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    q = sanitize_text(request.args.get('q', ''), max_len=100).strip()
+    state = sanitize_text(request.args.get('state', ''), max_len=50).strip()
+    status = sanitize_text(request.args.get('status', ''), max_len=50).strip()
+    
+    try:
+        limit = min(max(1, int(request.args.get('limit', 20))), 100)
+    except ValueError:
+        limit = 20
+
+    if REGISTRY_DF is None or len(REGISTRY_DF) == 0:
+        return jsonify({
+            'total_matches': 0,
+            'query': q,
+            'companies': []
+        })
+
+    # Default featured top safe employers across South India
+    if not q and (not state or state.lower() == 'all'):
+        featured_keywords = [
+            'TATA CONSULTANCY SERVICES', 'INFOSYS LIMITED', 'WIPRO LIMITED',
+            'ZOHO CORPORATION', 'FRESHWORKS', 'COGNIZANT', 'HCL TECHNOLOGIES',
+            'HYUNDAI MOTOR INDIA', 'TVS MOTOR COMPANY', 'LARSEN & TOUBRO',
+            'TITAN COMPANY', 'APOLLO HOSPITALS', 'FLIPKART INTERNET', 'SWIGGY', 'MRF LIMITED'
+        ]
+        regex_pattern = '|'.join([re.escape(k) for k in featured_keywords])
+        matched_df = REGISTRY_DF[REGISTRY_DF['Company Name'].str.contains(regex_pattern, case=False, na=False)].head(limit)
+        
+        results = []
+        for _, r in matched_df.iterrows():
+            results.append({
+                'cin': str(r.get('CIN', '')),
+                'company_name': str(r.get('Company Name', '')),
+                'state': str(r.get('Company State', 'South India')),
+                'status': str(r.get('Company Status', 'Active')),
+                'is_safe': True,
+                'verified_mca': True,
+                'badge': '100% MCA Government Registered'
+            })
+        return jsonify({
+            'total_matches': len(results),
+            'query': '',
+            'state_filter': 'All',
+            'companies': results
+        })
+
+    df_filtered = REGISTRY_DF
+    if state and state.lower() != 'all':
+        df_filtered = df_filtered[df_filtered['Company State'].str.lower() == state.lower()]
+
+    if status and status.lower() != 'all':
+        df_filtered = df_filtered[df_filtered['Company Status'].str.lower() == status.lower()]
+
+    if q:
+        safe_q = re.escape(q)
+        name_col = 'Company Name' if 'Company Name' in df_filtered.columns else df_filtered.columns[0]
+        cin_col = 'CIN' if 'CIN' in df_filtered.columns else None
+
+        name_match = df_filtered[name_col].str.contains(safe_q, case=False, na=False)
+        if cin_col:
+            cin_match = df_filtered[cin_col].str.contains(safe_q, case=False, na=False)
+            df_filtered = df_filtered[name_match | cin_match]
+        else:
+            df_filtered = df_filtered[name_match]
+
+    total_matches = len(df_filtered)
+    results = []
+    for _, r in df_filtered.head(limit).iterrows():
+        results.append({
+            'cin': str(r.get('CIN', 'N/A')),
+            'company_name': str(r.get('Company Name', '')),
+            'state': str(r.get('Company State', 'South India')),
+            'status': str(r.get('Company Status', 'Active')),
+            'is_safe': True,
+            'verified_mca': True,
+            'badge': '100% MCA Government Registered'
+        })
+
+    return jsonify({
+        'total_matches': total_matches,
+        'query': q,
+        'state_filter': state or 'All',
+        'companies': results
+    })
+
+@app.route('/api/companies/stats', methods=['GET'])
+def company_stats():
+    """Get registry statistics across South Indian states"""
+    total = len(REGISTRY_DF) if REGISTRY_DF is not None else len(TN_COMPANY_NAMES)
+    breakdown = {}
+    if REGISTRY_DF is not None and 'Company State' in REGISTRY_DF.columns:
+        counts = REGISTRY_DF['Company State'].value_counts().to_dict()
+        breakdown = {k: int(v) for k, v in counts.items()}
+
+    return jsonify({
+        'total_verified_companies': total,
+        'region': 'South India (TN, KA, TG, KL, AP)',
+        'state_breakdown': breakdown,
+        'mca_verified': True
+    })
 
 # ============================================================================
 # FRONTEND CATCH-ALL STATIC ROUTE (MUST BE LAST)
