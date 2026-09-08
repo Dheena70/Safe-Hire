@@ -179,15 +179,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
           {/* Mode Tabs or Forgot Title */}
           {authMode !== 'forgot' ? (
-            <div role="tablist" aria-label="Authentication Type" className="grid grid-cols-2 p-1 bg-slate-950/90 border border-slate-700/80 rounded-lg mb-6 text-xs font-semibold gap-1">
+            <div role="tablist" aria-label="Authentication Type" className="grid grid-cols-2 p-1 bg-slate-950 border border-slate-700/80 rounded-lg mb-7 text-xs font-semibold gap-1">
               <button
                 type="button"
                 role="tab"
                 aria-selected={authMode === 'login'}
                 onClick={() => { setAuthMode('login'); setError(null); setNotice(null); }}
-                className={`py-2 px-3 rounded-lg transition-all duration-200 text-center font-bold ${
+                className={`py-2 px-3 rounded-md transition-all duration-200 text-center font-semibold ${
                   authMode === 'login'
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/40'
+                    ? 'bg-slate-800 text-cyan-300 border border-slate-600 shadow-sm'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
                 }`}
               >
@@ -198,9 +198,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                 role="tab"
                 aria-selected={authMode === 'register'}
                 onClick={() => { setAuthMode('register'); setError(null); setNotice(null); }}
-                className={`py-2 px-3 rounded-lg transition-all duration-200 text-center font-bold ${
+                className={`py-2 px-3 rounded-md transition-all duration-200 text-center font-semibold ${
                   authMode === 'register'
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/40'
+                    ? 'bg-slate-800 text-cyan-300 border border-slate-600 shadow-sm'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
                 }`}
               >
@@ -208,7 +208,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
               </button>
             </div>
           ) : (
-            <div className="text-center mb-6">
+            <div className="text-center mb-7">
               <h2 className="text-lg font-bold text-white flex items-center justify-center space-x-2">
                 <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -224,7 +224,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
           )}
 
           {/* Form */}
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4 pt-1" onSubmit={handleSubmit}>
             {authMode === 'register' && (
               <>
                 <div>
