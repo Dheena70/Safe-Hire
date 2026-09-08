@@ -179,25 +179,29 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
 
           {/* Mode Tabs or Forgot Title */}
           {authMode !== 'forgot' ? (
-            <div className="grid grid-cols-2 p-1 bg-slate-950/90 border border-slate-700/80 rounded-lg mb-6 text-xs font-semibold">
+            <div role="tablist" aria-label="Authentication Type" className="grid grid-cols-2 p-1 bg-slate-950/90 border border-slate-700/80 rounded-lg mb-6 text-xs font-semibold gap-1">
               <button
                 type="button"
+                role="tab"
+                aria-selected={authMode === 'login'}
                 onClick={() => { setAuthMode('login'); setError(null); setNotice(null); }}
-                className={`py-2 rounded-lg transition duration-200 ${
+                className={`py-2 px-3 rounded-lg transition-all duration-200 text-center font-bold ${
                   authMode === 'login'
-                    ? 'bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm font-semibold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
                 }`}
               >
                 Sign In
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={authMode === 'register'}
                 onClick={() => { setAuthMode('register'); setError(null); setNotice(null); }}
-                className={`py-2 rounded-lg transition duration-200 ${
+                className={`py-2 px-3 rounded-lg transition-all duration-200 text-center font-bold ${
                   authMode === 'register'
-                    ? 'bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm font-semibold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
                 }`}
               >
                 Create Account
@@ -426,7 +430,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition duration-300 shadow-lg shadow-cyan-500/20 flex items-center justify-center text-sm tracking-wide mt-2"
+              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold py-3.5 px-4 rounded-lg transition duration-300 shadow-lg shadow-cyan-500/20 flex items-center justify-center text-sm tracking-wide mt-6 mb-2"
             >
               {loading ? (
                 <div className="flex items-center space-x-2">

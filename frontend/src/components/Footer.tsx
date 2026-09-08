@@ -42,9 +42,9 @@ export const Footer: React.FC<Props> = ({
 
           {/* Col 2: Core Defense Tools */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-cyan-400">
+            <h2 className="text-sm font-semibold text-cyan-400">
               Security Engines
-            </h3>
+            </h2>
             <ul className="space-y-2 text-xs">
               {onSelectTab ? (
                 <>
@@ -122,9 +122,9 @@ export const Footer: React.FC<Props> = ({
 
           {/* Col 3: Official Portals & Helplines */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-cyan-400">
+            <h2 className="text-sm font-semibold text-cyan-400">
               National Helplines
-            </h3>
+            </h2>
             <ul className="space-y-2 text-xs">
               <li>
                 <a
@@ -160,7 +160,7 @@ export const Footer: React.FC<Props> = ({
                     </svg>
                     <span>Emergency Cyber Helpline:</span>
                   </div>
-                  <p className="font-mono font-bold text-rose-400 text-sm mt-0.5 pl-5">Dial 1930</p>
+                  <p className="font-sans font-bold text-rose-400 text-sm mt-0.5 pl-5">Dial 1930</p>
                 </div>
               </li>
             </ul>
@@ -168,9 +168,9 @@ export const Footer: React.FC<Props> = ({
 
           {/* Col 4: Legal & Compliance */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-cyan-400">
+            <h2 className="text-sm font-semibold text-cyan-400">
               Legal & Compliance
-            </h3>
+            </h2>
             <ul className="space-y-2 text-xs">
               <li>
                 <button
