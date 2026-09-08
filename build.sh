@@ -4,7 +4,7 @@ set -e
 echo "=== Building React Frontend ==="
 cd frontend
 npm install
-npm run build
+GENERATE_SOURCEMAP=false npm run build
 cd ..
 
 echo "=== Installing Python Backend Dependencies ==="
