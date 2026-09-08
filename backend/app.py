@@ -104,6 +104,16 @@ app.config['JWT_HEADER_NAME'] = 'Authorization'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 jwt = JWTManager(app)
 
+@app.route('/healthz', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Lightweight healthcheck endpoint for Render / UptimeRobot"""
+    return jsonify({
+        "status": "healthy",
+        "service": "SAFE HIRE API",
+        "timestamp": datetime.utcnow().isoformat()
+    }), 200
+
 # ============================================================================
 # ACCESS CONTROL & ROLE DEFINITIONS
 # ============================================================================
