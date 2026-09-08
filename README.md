@@ -1,7 +1,7 @@
 <div align="center">
   <img src="frontend/src/assets/safe-hire-brand.png" alt="SAFE HIRE Logo" width="380" />
 
-  # SAFE HIRE v2.2
+  # SAFE HIRE v2.3
   
   **AI-Powered Job Scam & Corporate Legitimacy Verification Platform**
 
@@ -20,7 +20,7 @@
 
 **SAFE HIRE** is a production-grade cyber-intelligence and machine-learning platform engineered to protect job seekers, students, and professionals from recruitment fraud, fake appointment letters, and corporate impersonation schemes.
 
-It integrates a multi-layered verification engine combining **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembles**, real-time **Ministry of Corporate Affairs (MCA) Corporate Identification Number (CIN)** lookup across ~228,000 legal entity records, **SSRF-hardened Job URL extraction**, **Offer Letter PDF forensic scanning**, and a **crowd-sourced Community Scam Alert Board**.
+It integrates a multi-layered verification engine combining **NLP TF-IDF + Logistic Regression & Random Forest ML Ensembles**, real-time **Ministry of Corporate Affairs (MCA) Corporate Identification Number (CIN)** lookup across **7,99,384 legally registered entity records in South India (Tamil Nadu, Karnataka, Telangana, Kerala, Andhra Pradesh)**, **SSRF-hardened Job URL extraction**, **Offer Letter PDF forensic scanning**, and a **Verified Safe Companies Directory**.
 
 ---
 
@@ -29,7 +29,12 @@ It integrates a multi-layered verification engine combining **NLP TF-IDF + Logis
 ### 1. 🎯 Direct Job Legitimacy Verification
 - **Hybrid ML Ensemble**: TF-IDF NLP token classification + Logistic Regression + Random Forest.
 - **Government MCA CIN Registry Check**: Instant lookup of 21-character Corporate Identification Numbers with registered legal entity names.
-- **Regional Records Validation**: Cross-checks against ~228,000 regional company records.
+- **South India MCA Coverage**: Cross-checks against **7,99,384 registered companies** across 5 states:
+  - 🌴 **Tamil Nadu (TN)**: 2,28,400+ entities
+  - 🏢 **Karnataka (KA)**: 2,17,700+ entities
+  - 🚀 **Telangana (TG)**: 1,93,700+ entities
+  - 🥥 **Kerala (KL)**: 99,800+ entities
+  - 🌾 **Andhra Pradesh (AP)**: 59,700+ entities
 - **Live Fraud Database**: Cross-references against verified scam company syndicates.
 - **Interactive Test Presets**: 1-Click loading of real corporate jobs (with & without CIN) and scam samples.
 
@@ -47,9 +52,9 @@ It integrates a multi-layered verification engine combining **NLP TF-IDF + Logis
 - **Automated Extraction**: Paste URLs from LinkedIn, Naukri, Indeed, or career portals to auto-fill company name, title, description, HR email, and domain.
 - **SSRF Hardened**: Blocks private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.0.0/16`) and cloud metadata endpoints.
 
-### 5. 🚨 Community Scam Alert Board & Live Feed
-- **Live Fraud Feed**: Public registry of reported scams with category filters (`Data Entry`, `Telegram Task`, `Fake MNC`, `Abroad Job`, `Fee Demand`).
-- **Community Upvoting & Incident Reporting**: Allows job seekers to publish and confirm scam syndicates in real time.
+### 5. 🏛️ Verified Safe Companies Directory (7.99L+ South India MCA)
+- **Instant Search & Filters**: Search legitimate companies by name, CIN, or state across 7.99L+ registered South Indian businesses.
+- **Corporate Transparency**: View official CIN numbers, state jurisdictions, and active corporate standing directly from official MCA data.
 
 ### 6. 🔐 2-Step OTP Password Reset & Enterprise Security
 - **Dual-Channel OTP Delivery**: Cryptographically secure 6-digit verification code dispatched via real SMTP Email or Mobile SMS with logo-branded HTML email template.
@@ -72,7 +77,7 @@ It integrates a multi-layered verification engine combining **NLP TF-IDF + Logis
 | **Backend API** | Python 3.11, Flask, Flask-CORS, Flask-JWT-Extended | RESTful architecture with defense-in-depth security |
 | **Machine Learning & NLP** | scikit-learn, NLTK, NumPy, Pandas | TF-IDF vectorizer + Scaler + Logistic Regression + Random Forest |
 | **Document Forensics** | PyPDF, BeautifulSoup4 | PDF text extraction & DOM parsing with SSRF protection |
-| **Databases & Storage** | MCA Corporate Registries (CSV), Atomic JSON | Thread-safe in-memory stores with atomic file persistence |
+| **Databases & Storage** | MCA Corporate Registries (7.99L CSV), Atomic JSON | Vectorized pandas lookup (<1.8s startup) & atomic JSON persistence |
 | **Authentication** | JWT (256-bit), Bcrypt, Python `secrets` | Role-Based Access Control (RBAC) & 2-Step OTP Reset |
 
 ---
@@ -84,9 +89,8 @@ It integrates a multi-layered verification engine combining **NLP TF-IDF + Logis
 | `POST` | `/predict` or `/api/predict` | Analyze company legitimacy & job description |
 | `POST` | `/api/scan-offer-letter` | Forensic scan of offer letter PDF or pasted text |
 | `POST` | `/api/fetch-job-url` | SSRF-safe 1-Click extraction from job URLs |
-| `GET` | `/api/scams` | Fetch community scam alerts with search & filters |
-| `POST` | `/api/scams/report` | Submit new recruitment fraud incident |
-| `POST` | `/api/scams/:id/vote` | Upvote / confirm a reported scam |
+| `GET` | `/api/companies/search` | Search verified MCA companies by name/CIN & state |
+| `GET` | `/api/companies/stats` | Retrieve total South India MCA registry statistics |
 | `POST` | `/auth/register` | Register user with strong password policy |
 | `POST` | `/auth/login` | Authenticate user & issue JWT token |
 | `POST` | `/auth/send-otp` | Dispatch 6-digit OTP to Email or Phone |
@@ -97,7 +101,7 @@ It integrates a multi-layered verification engine combining **NLP TF-IDF + Logis
 
 ---
 
-## 🧪 Comprehensive Test Suite (15/15 Passed)
+## 🧪 Comprehensive Test Suite (16/16 Passed)
 
 Run the end-to-end integration and security test suite:
 ```bash
@@ -107,7 +111,7 @@ python test_backend.py
 
 ```
 =================================================================
-SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.2)
+SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.3)
 =================================================================
 [Test 1] ML detector initialization .............. [PASS]
 [Test 2] Security HTTP Headers (nosniff/CSP) ...... [PASS]
@@ -122,10 +126,11 @@ SAFE HIRE: COMPREHENSIVE SECURITY & INTEGRATION TEST SUITE (v2.2)
 [Test 11] 2-Step OTP Password Reset (Email/Phone) . [PASS]
 [Test 12] Offer Letter Fraud PDF Scanner .......... [PASS]
 [Test 13] SSRF Hardening & Job URL Fetcher ........ [PASS]
-[Test 14] Community Scam Alert Board Feed ......... [PASS]
-[Test 15] Community Scam Reporting & Upvoting ..... [PASS]
+[Test 14] Scam Alerts Database Retrieval ......... [PASS]
+[Test 15] Scam Incident Reporting & Upvoting ...... [PASS]
+[Test 16] Verified Safe Company Search & Stats .... [PASS]
 =================================================================
-ALL 15 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]
+ALL 16 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]
 =================================================================
 ```
 
