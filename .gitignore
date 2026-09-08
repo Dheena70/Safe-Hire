@@ -36,6 +36,11 @@ visitors.json
 *.swo
 *.sublime-*
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 # OS
 Thumbs.db
 .DS_Store
