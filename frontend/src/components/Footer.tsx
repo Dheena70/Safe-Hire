@@ -34,8 +34,7 @@ export const Footer: React.FC<Props> = ({
               India&apos;s pioneering AI-powered recruitment security and offer letter fraud defense engine. Protects jobseekers with MCA real-time validation, NLP heuristics, and 8 Lakh+ South Indian registered companies registry.
             </p>
             <div className="space-y-1 text-xs text-slate-400">
-              <p className="text-slate-300 font-semibold font-sans">Security Response HQ:</p>
-              <p>📍 OMR Cyber Corridor, Chennai, TN, India</p>
+              <p className="text-slate-300 font-semibold font-sans">Official Support & Inquiries:</p>
               <p>📧 contact@safehire.ai | support@safehire.ai</p>
             </div>
           </div>
