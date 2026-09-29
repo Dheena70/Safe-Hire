@@ -319,8 +319,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                       6-Digit Verification Code (OTP)
                     </label>
                     {otpCountdown > 0 ? (
-                      <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold">
-                        ⏱️ {formatTimer(otpCountdown)}
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-bold inline-flex items-center gap-1">
+                        <svg className="w-3 h-3 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                          <polyline points="12 6 12 12 16 14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span>{formatTimer(otpCountdown)}</span>
                       </span>
                     ) : (
                       <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-300 font-bold">

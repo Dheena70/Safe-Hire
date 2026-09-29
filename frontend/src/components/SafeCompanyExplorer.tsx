@@ -6,12 +6,14 @@ interface SafeCompanyExplorerProps {
 }
 
 const SOUTH_STATES = [
-  { id: 'All', name: 'All South India' },
+  { id: 'All', name: 'All South India & UTs' },
   { id: 'Tamil Nadu', name: 'Tamil Nadu' },
   { id: 'Karnataka', name: 'Karnataka (Bangalore)' },
   { id: 'Telangana', name: 'Telangana (Hyderabad)' },
   { id: 'Kerala', name: 'Kerala' },
   { id: 'Andhra Pradesh', name: 'Andhra Pradesh' },
+  { id: 'Puducherry', name: 'Puducherry (UT)' },
+  { id: 'Lakshadweep', name: 'Lakshadweep (UT)' },
 ];
 
 const POPULAR_SAFE_PICKS = [
@@ -28,13 +30,15 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
   const [loading, setLoading] = useState(false);
   const [copiedCin, setCopiedCin] = useState<string | null>(null);
   const [stats, setStats] = useState<{ total: number; breakdown: Record<string, number> }>({
-    total: 799384,
+    total: 799439,
     breakdown: {
       'Tamil Nadu': 228433,
-      'Karnataka': 217745,
+      'Karnataka': 217749,
       'Telangana': 193693,
       'Kerala': 99805,
-      'Andhra Pradesh': 59708,
+      'Andhra Pradesh': 59709,
+      'Puducherry': 30,
+      'Lakshadweep': 15,
     },
   });
 
@@ -97,6 +101,10 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
         return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
       case 'Andhra Pradesh':
         return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+      case 'Puducherry':
+        return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+      case 'Lakshadweep':
+        return 'bg-teal-500/10 text-teal-400 border-teal-500/30';
       default:
         return 'bg-slate-700/50 text-slate-300 border-slate-600';
     }
@@ -113,7 +121,7 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
           <div className="space-y-2">
             <div className="inline-flex items-center space-x-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs font-semibold text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>7,99,384+ Official MCA Verified Entities</span>
+              <span>7,99,439+ Official MCA Verified Entities</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
               <svg className="w-7 h-7 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -125,7 +133,7 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
               <span>Verified Safe Companies Directory</span>
             </h1>
             <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              Search and explore Government-registered companies across South India (TN, KA, TG, KL, AP).
+              Search and explore Government-registered companies across South India &amp; Union Territories (TN, KA, TG, KL, AP, PY, LD).
               Quickly verify legit employers before applying to avoid scams.
             </p>
           </div>
@@ -140,13 +148,13 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
               <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              <span>5 South Indian States Covered</span>
+              <span>5 States + 2 UTs Covered</span>
             </div>
           </div>
         </div>
 
         {/* State Breakdown Pills */}
-        <div className="mt-6 pt-5 border-t border-slate-700/60 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="mt-6 pt-5 border-t border-slate-700/60 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
           {Object.entries(stats.breakdown).map(([stName, count]) => (
             <div
               key={stName}
@@ -265,7 +273,7 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
         {loading ? (
           <div className="py-16 text-center space-y-3">
             <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mx-auto"></div>
-            <p className="text-sm text-slate-400">Scanning 7.99 Lakh MCA South Indian company records...</p>
+            <p className="text-sm text-slate-400">Scanning 8 Lakh MCA South Indian company records...</p>
           </div>
         ) : companies.length === 0 ? (
           <div className="py-16 text-center bg-slate-900/50 border border-slate-800 rounded-2xl p-8 space-y-3">
