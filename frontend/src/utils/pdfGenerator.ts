@@ -329,7 +329,12 @@ export const generateSecurityAuditPDF = (
 
     <div class="header">
       <div class="logo-section">
-        <div class="shield-icon">🛡️</div>
+        <div class="shield-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
         <div class="title-group">
           <h1>SAFE HIRE</h1>
           <p>AI Cyber Fraud Defense & Legitimacy Audit System</p>
@@ -345,7 +350,7 @@ export const generateSecurityAuditPDF = (
     <div class="banner">
       <div>
         <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Official Audit Status</div>
-        <div class="verdict-badge">${result.prediction === 'REAL' ? '✓ VERIFIED LEGITIMATE' : '⚠ FRAUDULENT / HIGH RISK'}</div>
+        <div class="verdict-badge">${result.prediction === 'REAL' ? 'VERIFIED LEGITIMATE' : 'FRAUDULENT / HIGH RISK'}</div>
         <div style="margin-top: 8px; font-size: 12px; color: #cbd5e1;">Risk Rating: <strong style="color: ${riskColor};">${result.risk_level} Risk</strong></div>
       </div>
       <div class="score-box">
@@ -377,7 +382,7 @@ export const generateSecurityAuditPDF = (
           <span>${jobData.cin || 'Not Provided'}</span>
           ${
             result.cin_verified === true
-              ? `<span class="mca-verified-badge">✓ MCA Government Registry Match: ${result.registered_company_name || 'Active'}</span>`
+              ? `<span class="mca-verified-badge">MCA Government Registry Match: ${result.registered_company_name || 'Active'}</span>`
               : result.cin_verified
               ? `<span style="font-size: 11px; color: #f59e0b; font-weight: 600;">Status: ${result.cin_verified}</span>`
               : ''
@@ -388,7 +393,11 @@ export const generateSecurityAuditPDF = (
 
     <div class="reasons-box">
       <div class="reasons-title">
-        <span>🔍</span> Diagnostic Findings & Verification Signals
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        Diagnostic Findings & Verification Signals
       </div>
       <ul class="reasons-list">
         ${(result.reasons || ['All standard heuristic checks evaluated.'])

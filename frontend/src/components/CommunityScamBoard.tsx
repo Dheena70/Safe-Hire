@@ -129,7 +129,8 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <span>🚨</span> Live Fraud Feed
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+              <span>Live Fraud Feed</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
               Community Scam Alert Board
@@ -145,7 +146,12 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
                 onClick={onExploreSafe}
                 className="px-4 py-3 rounded-xl font-bold text-xs tracking-wide text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center gap-2"
               >
-                <span>🏛️</span>
+                <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/>
+                  <path d="M7 7h10"/>
+                  <path d="M7 12h10"/>
+                  <path d="M7 17h10"/>
+                </svg>
                 <span>Search Safe Companies (7.99L)</span>
               </button>
             )}
@@ -154,7 +160,10 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
               onClick={() => setIsReportModalOpen(true)}
               className="px-5 py-3 rounded-xl font-bold text-xs tracking-wide text-white bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-400 hover:to-orange-400 shadow-lg shadow-rose-500/25 transition-all flex items-center gap-2"
             >
-              <span>📢</span>
+              <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m3 11 18-5v12L3 14v-3z"/>
+                <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+              </svg>
               <span>Report a Scam</span>
             </button>
           </div>
@@ -172,7 +181,12 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
               placeholder="Search suspect company, job role, phone, Telegram handle, or keyword..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 pl-10 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
             />
-            <span className="absolute left-3.5 top-3.5 text-slate-500">🔍</span>
+            <span className="absolute left-3.5 top-3.5 text-slate-500 pointer-events-none">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </span>
           </div>
           <button
             type="submit"
@@ -203,12 +217,16 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
       {/* Scams Feed Grid */}
       {loading ? (
         <div className="text-center py-16 space-y-3">
-          <div className="inline-block animate-spin text-3xl">⚙️</div>
+          <div className="w-8 h-8 mx-auto border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin"></div>
           <p className="text-sm font-medium text-slate-400">Loading Community Scam Alerts...</p>
         </div>
       ) : scams.length === 0 ? (
         <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
-          <div className="text-4xl">🛡️</div>
+          <div className="w-12 h-12 mx-auto rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
           <h3 className="text-base font-bold text-slate-200">No scams found matching your query</h3>
           <p className="text-xs text-slate-400">Try searching for a different keyword or category.</p>
         </div>
@@ -231,7 +249,10 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
                         </span>
                         {scam.verified_fraud && (
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
-                            <span>✓</span> Verified Scam
+                            <svg className="w-3 h-3 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            Verified Scam
                           </span>
                         )}
                       </div>
@@ -259,7 +280,9 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
                   {/* Contact / Channel */}
                   {scam.contact_info && scam.contact_info !== 'Not provided' && (
                     <div className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
-                      <span>📞</span>
+                      <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                      </svg>
                       <span className="text-slate-300 truncate">{scam.contact_info}</span>
                     </div>
                   )}
@@ -281,8 +304,22 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                     }`}
                   >
-                    <span>{hasVoted ? '✓ Upvoted' : '▲ Confirm Scam'}</span>
-                    <span className="px-1.5 py-0.2 rounded bg-slate-950 text-[11px] font-mono">
+                    {hasVoted ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>Upvoted</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m18 15-6-6-6 6"/>
+                        </svg>
+                        <span>Confirm Scam</span>
+                      </>
+                    )}
+                    <span className="px-1.5 py-0.5 rounded bg-slate-950 text-[11px] font-mono">
                       {scam.votes}
                     </span>
                   </button>
@@ -300,7 +337,11 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                  <span>📢</span> Report a Recruitment Scam
+                  <svg className="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m3 11 18-5v12L3 14v-3z"/>
+                    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+                  </svg>
+                  <span>Report a Recruitment Scam</span>
                 </h3>
                 <p className="text-xs text-slate-400">
                   Help warn other candidates by documenting fraudulent recruiters or demands.
@@ -308,9 +349,12 @@ export const CommunityScamBoard: React.FC<CommunityScamBoardProps> = ({ onExplor
               </div>
               <button
                 onClick={() => setIsReportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-200 text-xl font-bold p-1"
+                className="text-slate-400 hover:text-slate-200 p-1"
               >
-                ✕
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18"/>
+                  <path d="m6 6 12 12"/>
+                </svg>
               </button>
             </div>
 

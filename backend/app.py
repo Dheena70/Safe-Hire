@@ -137,9 +137,9 @@ def resolve_role(user):
 def is_admin_request() -> bool:
     """Detect if current request is initiated by a designated Administrator"""
     try:
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
+        auth_header = request.headers.get('Authorization', '').strip()
+        if auth_header.lower().startswith('bearer '):
+            token = auth_header[7:].strip()
             from flask_jwt_extended import decode_token
             decoded = decode_token(token)
             identity = (decoded.get('sub') or '').strip().lower()
@@ -265,7 +265,7 @@ def method_not_allowed(e):
 
 @app.errorhandler(413)
 def request_entity_too_large(e):
-    return jsonify({"error": "Payload too large. Maximum allowed size is 2MB."}), 413
+    return jsonify({"error": "Payload too large. Maximum allowed size is 10MB."}), 413
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -447,16 +447,22 @@ def check_cin_registry(cin):
     if not cin:
         return None, None
     clean_cin = str(cin).strip().upper()
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT company_name FROM companies WHERE cin = ? LIMIT 1", (clean_cin,))
         row = cur.fetchone()
-        conn.close()
         if row:
             return True, row['company_name']
     except Exception as e:
         logger.warning(f"CIN lookup error: {e}")
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     if CIN_REGEX.match(clean_cin):
         return 'UNVERIFIED_REGIONAL', None
@@ -469,6 +475,7 @@ def check_tamil_nadu_registry(company_name):
         return None
 
     normalized_name = company_name.lower().strip()
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -476,7 +483,6 @@ def check_tamil_nadu_registry(company_name):
         cur.execute("SELECT company_name FROM companies WHERE name_lower = ? LIMIT 1", (normalized_name,))
         row = cur.fetchone()
         if row:
-            conn.close()
             return True
 
         # 2. Tokenized match for major distinct words
@@ -485,11 +491,15 @@ def check_tamil_nadu_registry(company_name):
             token_phrase = ' '.join(tokens)
             cur.execute("SELECT company_name FROM companies WHERE name_lower LIKE ? LIMIT 1", (f"%{token_phrase}%",))
             if cur.fetchone():
-                conn.close()
                 return True
-        conn.close()
     except Exception as e:
         logger.warning(f"Company registry check error: {e}")
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     return False
 
@@ -1122,12 +1132,12 @@ def send_mobile_sms_otp(phone: str, otp_code: str) -> bool:
                 res_body = response.read().decode('utf-8')
                 res_json = json.loads(res_body)
                 if res_json.get('return'):
-                    logger.info(f"📱 [Fast2SMS] Successfully dispatched real SMS OTP to {indian_10_digit}")
+                    logger.info(f"[Fast2SMS] Successfully dispatched real SMS OTP to {indian_10_digit}")
                     return True
                 else:
-                    logger.warning(f"📱 [Fast2SMS] API response: {res_json.get('message', res_body)}")
+                    logger.warning(f"[Fast2SMS] API response: {res_json.get('message', res_body)}")
         except Exception as e:
-            logger.error(f"📱 [Fast2SMS] Failed to send SMS to {indian_10_digit}: {e}")
+            logger.error(f"[Fast2SMS] Failed to send SMS to {indian_10_digit}: {e}")
 
     # Option 2: Twilio (Global SMS API)
     twilio_sid = os.getenv('TWILIO_ACCOUNT_SID', '').strip()
@@ -1138,7 +1148,7 @@ def send_mobile_sms_otp(phone: str, otp_code: str) -> bool:
             import base64
             url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
             to_phone = f"+{digits_only}" if not cleaned_phone.startswith('+') else cleaned_phone
-            msg_body = f"🔐 SAFE HIRE Security Verification Code: {otp_code} (Valid for 2 minutes. Do not share with anyone)."
+            msg_body = f"SAFE HIRE Security Verification Code: {otp_code} (Valid for 2 minutes. Do not share with anyone)."
             data = urllib.parse.urlencode({
                 "To": to_phone,
                 "From": twilio_from,
@@ -1158,13 +1168,13 @@ def send_mobile_sms_otp(phone: str, otp_code: str) -> bool:
             )
             with urllib.request.urlopen(req, timeout=10) as response:
                 res_body = response.read().decode('utf-8')
-                logger.info(f"📱 [Twilio] Successfully dispatched SMS OTP to {to_phone}")
+                logger.info(f"[Twilio] Successfully dispatched SMS OTP to {to_phone}")
                 return True
         except Exception as e:
-            logger.error(f"📱 [Twilio] Failed to send SMS to {cleaned_phone}: {e}")
+            logger.error(f"[Twilio] Failed to send SMS to {cleaned_phone}: {e}")
 
     # Fallback if no SMS provider configured
-    logger.info(f"📱 [SMS GATEWAY LOG] OTP for {cleaned_phone} -> {otp_code} (Add FAST2SMS_API_KEY in .env to receive real mobile SMS)")
+    logger.info(f"[SMS GATEWAY LOG] OTP for {cleaned_phone} -> {otp_code} (Add FAST2SMS_API_KEY in .env to receive real mobile SMS)")
     return False
 
 @app.route('/auth/send-otp', methods=['POST'])
@@ -1243,7 +1253,7 @@ def send_otp():
             masked_target = f"{parts[0][:2]}***@{parts[1]}" if len(parts) == 2 and len(parts[0]) >= 2 else lookup_key
             msg = f"A 6-digit OTP code has been dispatched to your registered Email ({masked_target})."
 
-        logger.info(f"🔐 [SECURITY OTP CODE] Dispatched for {lookup_key} ({method}): {otp_val} (Valid for 2 minutes)")
+        logger.info(f"[SECURITY OTP CODE] Dispatched for {lookup_key} ({method}): {otp_val} (Valid for 2 minutes)")
 
         return jsonify({
             "message": msg,
@@ -1445,6 +1455,14 @@ def is_safe_external_url(url_str: str) -> tuple:
     except Exception as e:
         return False, f"URL validation failed: {str(e)}"
 
+class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Custom HTTP redirect handler ensuring redirect targets are validated against SSRF"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        is_safe, err_msg = is_safe_external_url(newurl)
+        if not is_safe:
+            raise urllib.error.HTTPError(newurl, 403, f"SSRF Security Violation on redirect: {err_msg}", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
 # ============================================================================
 # OFFER LETTER FRAUD DETECTION HEURISTICS
 # ============================================================================
@@ -1569,12 +1587,12 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
 
     recommendations = []
     if final_risk_score >= 50:
-        recommendations.append("❌ DO NOT transfer any money or provide UPI payments for training, laptop, or document verification.")
-        recommendations.append("📞 Contact the company directly through their official website contact page (not numbers on the letter).")
-        recommendations.append("🛡️ File a complaint on Cyber Crime Portal (cybercrime.gov.in) if payment was demanded.")
+        recommendations.append("DO NOT transfer any money or provide UPI payments for training, laptop, or document verification.")
+        recommendations.append("Contact the company directly through their official website contact page (not numbers on the letter).")
+        recommendations.append("File a complaint on Cyber Crime Portal (cybercrime.gov.in) if payment was demanded.")
     else:
-        recommendations.append("✅ Verify salary structure, probation period, and official joining location.")
-        recommendations.append("✅ Confirm with HR from an official company email address.")
+        recommendations.append("Verify salary structure, probation period, and official joining location.")
+        recommendations.append("Confirm with HR from an official company email address.")
 
     return {
         "verdict": verdict,
@@ -1681,7 +1699,8 @@ def fetch_job_url():
             }
         )
 
-        with urllib.request.urlopen(req, timeout=10) as response:
+        opener = urllib.request.build_opener(SafeRedirectHandler())
+        with opener.open(req, timeout=10) as response:
             html_bytes = response.read(1024 * 1024) # Read max 1MB
             html_content = html_bytes.decode('utf-8', errors='ignore')
 
@@ -1902,6 +1921,7 @@ def search_companies():
         limit = 20
 
     # Default featured top safe employers across South India
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -1933,7 +1953,6 @@ def search_companies():
                 'verified_mca': True,
                 'badge': '100% MCA Government Registered'
             } for r in rows]
-            conn.close()
             return jsonify({
                 'total_matches': len(results),
                 'query': '',
@@ -1974,7 +1993,6 @@ def search_companies():
             'verified_mca': True,
             'badge': '100% MCA Government Registered'
         } for r in rows]
-        conn.close()
 
         return jsonify({
             'total_matches': total_matches,
@@ -1991,10 +2009,17 @@ def search_companies():
             'companies': [],
             'error': str(e)
         })
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 @app.route('/api/companies/stats', methods=['GET'])
 def company_stats():
     """Get registry statistics across South Indian states via SQLite"""
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -2002,7 +2027,6 @@ def company_stats():
         total = cur.fetchone()[0]
         cur.execute("SELECT state, COUNT(*) as cnt FROM companies GROUP BY state ORDER BY cnt DESC")
         breakdown = {str(r['state']): int(r['cnt']) for r in cur.fetchall() if r['state']}
-        conn.close()
         return jsonify({
             'total_verified_companies': total,
             'region': 'South India (TN, KA, TG, KL, AP)',
@@ -2017,6 +2041,12 @@ def company_stats():
             'state_breakdown': {},
             'mca_verified': True
         })
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 # ============================================================================
 # FRONTEND CATCH-ALL STATIC ROUTE (MUST BE LAST)

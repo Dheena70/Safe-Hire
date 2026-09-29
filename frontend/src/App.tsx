@@ -4,6 +4,7 @@ import AuthForm from './components/AuthForm';
 import VerificationForm from './components/VerificationForm';
 import { OfferLetterScanner } from './components/OfferLetterScanner';
 import { SafeCompanyExplorer } from './components/SafeCompanyExplorer';
+import { CommunityScamBoard } from './components/CommunityScamBoard';
 import AdminDashboard from './components/AdminDashboard';
 import { CookieBanner } from './components/CookieBanner';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
@@ -15,7 +16,7 @@ import shieldLogo from './assets/safe-hire-shield.png';
 function App() {
   const [user, setUser] = useState<AuthResponse | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'safe-companies'>('verify');
+  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'safe-companies' | 'scam-board'>('verify');
   const [selectedSafeCompany, setSelectedSafeCompany] = useState<{ company_name: string; cin?: string } | null>(null);
   const [isNotFound, setIsNotFound] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
@@ -138,13 +139,16 @@ function App() {
                 {isAdmin && (
                   <button
                     onClick={toggleAdminView}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-200 border ${
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-200 border flex items-center gap-1.5 ${
                       showAdmin
                         ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20'
                         : 'bg-slate-800/80 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-600'
                     }`}
                   >
-                    {showAdmin ? '🔍 Verification Panel' : '📊 Admin Analytics'}
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showAdmin ? "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" : "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"} />
+                    </svg>
+                    <span>{showAdmin ? 'Verification Panel' : 'Admin Analytics'}</span>
                   </button>
                 )}
 
@@ -166,11 +170,13 @@ function App() {
                 {/* Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="p-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg transition"
+                  className="p-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg transition flex items-center gap-1.5"
                   title="Sign Out"
                 >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                   <span className="hidden sm:inline">Logout</span>
-                  <span className="sm:hidden">🚪</span>
                 </button>
               </div>
             </div>
@@ -186,7 +192,9 @@ function App() {
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <span>🎯</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
                   <span>Job Legitimacy Verification</span>
                 </button>
 
@@ -198,7 +206,9 @@ function App() {
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <span>📄</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                   <span>Offer Letter PDF Scanner</span>
                 </button>
 
@@ -210,8 +220,24 @@ function App() {
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <span>🏛️</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
                   <span>Verified Safe Companies (7.99L MCA)</span>
+                </button>
+
+                <button
+                  onClick={() => { setIsNotFound(false); setActiveTab('scam-board'); }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                    activeTab === 'scam-board'
+                      ? 'bg-gradient-to-r from-rose-500 to-orange-600 text-white shadow-md shadow-rose-500/20'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>Community Scam Board</span>
                 </button>
               </div>
             )}
@@ -231,6 +257,13 @@ function App() {
               onSelectCompany={(compName, cin) => {
                 setSelectedSafeCompany({ company_name: compName, cin });
                 setActiveTab('verify');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          ) : activeTab === 'scam-board' ? (
+            <CommunityScamBoard
+              onExploreSafe={() => {
+                setActiveTab('safe-companies');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />

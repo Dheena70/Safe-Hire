@@ -82,7 +82,11 @@ export const OfferLetterScanner: React.FC = () => {
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <span>📄</span> AI Document Forensics
+              <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span>AI Document Forensics</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
               Offer Letter Fraud Scanner
@@ -122,7 +126,11 @@ export const OfferLetterScanner: React.FC = () => {
         <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
           {error && (
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-3 animate-fadeIn">
-              <span className="text-lg">⚠️</span>
+              <svg className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
               <div className="flex-1 font-medium">{error}</div>
             </div>
           )}
@@ -149,12 +157,24 @@ export const OfferLetterScanner: React.FC = () => {
                     : 'border-slate-700/80 bg-slate-950/50 hover:border-cyan-500/50 hover:bg-slate-950/80'
                 }`}
               >
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg transition-transform duration-300 ${
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 ${
                   selectedFile
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : 'bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 group-hover:scale-110'
                 }`}>
-                  {selectedFile ? '📑' : '📤'}
+                  {selectedFile ? (
+                    <svg className="w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <path d="m9 15 2 2 4-4"/>
+                    </svg>
+                  ) : (
+                    <svg className="w-8 h-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -218,7 +238,10 @@ export const OfferLetterScanner: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <span>🛡️</span>
+                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                  </svg>
                   <span>Analyze Offer Letter Legitimacy</span>
                 </>
               )}
@@ -320,7 +343,11 @@ export const OfferLetterScanner: React.FC = () => {
           {/* Extracted Details Grid */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <span>📋</span> Extracted Document Entities
+              <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+              </svg>
+              <span>Extracted Document Entities</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="p-3.5 bg-slate-950/60 border border-slate-800/80 rounded-xl">
@@ -374,7 +401,12 @@ export const OfferLetterScanner: React.FC = () => {
             {/* Red Flags */}
             <div className="bg-slate-900/80 border border-rose-500/20 rounded-2xl p-6 shadow-xl space-y-4">
               <h4 className="text-sm font-bold text-rose-400 flex items-center gap-2">
-                <span>🚨</span> Red Flags & Suspicious Signals ({result.red_flags.length})
+                <svg className="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span>Red Flags & Suspicious Signals ({result.red_flags.length})</span>
               </h4>
               {result.red_flags.length > 0 ? (
                 <ul className="space-y-2.5">
@@ -383,7 +415,10 @@ export const OfferLetterScanner: React.FC = () => {
                       key={idx}
                       className="text-xs text-rose-200 bg-rose-950/30 border border-rose-900/40 p-3 rounded-xl flex items-start gap-2.5"
                     >
-                      <span className="text-rose-400 font-bold shrink-0">✕</span>
+                      <svg className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 6 6 18"/>
+                        <path d="m6 6 12 12"/>
+                      </svg>
                       <span className="leading-relaxed">{flag}</span>
                     </li>
                   ))}
@@ -398,7 +433,11 @@ export const OfferLetterScanner: React.FC = () => {
             {/* Green Flags */}
             <div className="bg-slate-900/80 border border-emerald-500/20 rounded-2xl p-6 shadow-xl space-y-4">
               <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
-                <span>✅</span> Legitimate Verification Indicators ({result.green_flags.length})
+                <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>Legitimate Verification Indicators ({result.green_flags.length})</span>
               </h4>
               {result.green_flags.length > 0 ? (
                 <ul className="space-y-2.5">
@@ -407,7 +446,9 @@ export const OfferLetterScanner: React.FC = () => {
                       key={idx}
                       className="text-xs text-emerald-200 bg-emerald-950/30 border border-emerald-900/40 p-3 rounded-xl flex items-start gap-2.5"
                     >
-                      <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                      <svg className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
                       <span className="leading-relaxed">{flag}</span>
                     </li>
                   ))}
@@ -423,7 +464,12 @@ export const OfferLetterScanner: React.FC = () => {
           {/* Actionable Recommendations */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
             <h4 className="text-sm font-bold text-cyan-400 flex items-center gap-2">
-              <span>💡</span> Recommended Candidate Actions
+              <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+              <span>Recommended Candidate Actions</span>
             </h4>
             <div className="space-y-2">
               {result.recommendations.map((rec, idx) => (
@@ -441,9 +487,15 @@ export const OfferLetterScanner: React.FC = () => {
           <div className="pt-2 text-center">
             <button
               onClick={handleReset}
-              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold tracking-wide transition-all border border-slate-700 shadow-md"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold tracking-wide transition-all border border-slate-700 shadow-md"
             >
-              🔄 Scan Another Offer Letter
+              <svg className="w-4 h-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </svg>
+              <span>Scan Another Offer Letter</span>
             </button>
           </div>
         </div>

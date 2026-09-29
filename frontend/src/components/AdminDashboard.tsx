@@ -39,7 +39,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
     return (
       <div className="max-w-md mx-auto my-12 p-6 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-2xl shadow-xl">
         <p className="font-bold text-base mb-1 flex items-center space-x-2">
-          <span>❌</span>
+          <svg className="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
           <span>Access Error</span>
         </p>
         <p className="text-xs text-rose-200">{error}</p>
@@ -66,7 +70,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
         <div>
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-2">
-            <span>🛡️</span>
+            <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
             <span>Security Operations Center</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-black text-white">Admin Intelligence Dashboard</h1>
@@ -84,8 +90,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Verifications</p>
               <p className="text-4xl font-extrabold text-white mt-2 font-mono">{totalPredictions}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-2xl">
-              📈
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
             </div>
           </div>
           <p className="text-[11px] text-slate-500 mt-4">Cumulative queries processed by AI engine</p>
@@ -99,8 +109,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Verified Real Listings</p>
               <p className="text-4xl font-extrabold text-emerald-400 mt-2 font-mono">{realCount}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl">
-              ✅
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
             </div>
           </div>
           <p className="text-[11px] text-slate-500 mt-4">
@@ -116,8 +129,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Flagged Fraudulent</p>
               <p className="text-4xl font-extrabold text-rose-400 mt-2 font-mono">{fakeCount}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl">
-              🚨
+            <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
             </div>
           </div>
           <p className="text-[11px] text-slate-500 mt-4">
@@ -129,7 +146,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
       {/* Risk Level Distribution Cards */}
       <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
         <h2 className="text-lg font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-          <span>📊</span>
+          <svg className="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
+          </svg>
           <span>Risk Classification Distribution</span>
         </h2>
         
@@ -137,7 +157,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
           {/* High Risk */}
           <div className="bg-slate-950/70 p-5 rounded-2xl border border-rose-500/30 relative">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">🔴 High Risk</span>
+              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                High Risk
+              </span>
               <span className="text-xs font-mono text-slate-400">{riskPercent(riskDist.high)}%</span>
             </div>
             <p className="text-3xl font-extrabold text-white mt-2 font-mono">{riskDist.high}</p>
@@ -149,7 +172,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
           {/* Medium Risk */}
           <div className="bg-slate-950/70 p-5 rounded-2xl border border-amber-500/30 relative">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">🟡 Medium Risk</span>
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                Medium Risk
+              </span>
               <span className="text-xs font-mono text-slate-400">{riskPercent(riskDist.medium)}%</span>
             </div>
             <p className="text-3xl font-extrabold text-white mt-2 font-mono">{riskDist.medium}</p>
@@ -161,7 +187,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
           {/* Low Risk */}
           <div className="bg-slate-950/70 p-5 rounded-2xl border border-emerald-500/30 relative">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">🟢 Low Risk</span>
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                Low Risk
+              </span>
               <span className="text-xs font-mono text-slate-400">{riskPercent(riskDist.low)}%</span>
             </div>
             <p className="text-3xl font-extrabold text-white mt-2 font-mono">{riskDist.low}</p>
@@ -175,7 +204,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ token }) => {
       {/* Live Recent Verifications Log Table */}
       <div className="backdrop-blur-xl bg-slate-900/80 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
         <h2 className="text-lg font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-          <span>📋</span>
+          <svg className="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+          </svg>
           <span>Recent Verification Stream</span>
         </h2>
 

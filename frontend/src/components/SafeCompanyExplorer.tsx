@@ -6,12 +6,12 @@ interface SafeCompanyExplorerProps {
 }
 
 const SOUTH_STATES = [
-  { id: 'All', name: 'All South India', icon: '🇮🇳' },
-  { id: 'Tamil Nadu', name: 'Tamil Nadu', icon: '📍' },
-  { id: 'Karnataka', name: 'Karnataka (Bangalore)', icon: '📍' },
-  { id: 'Telangana', name: 'Telangana (Hyderabad)', icon: '📍' },
-  { id: 'Kerala', name: 'Kerala', icon: '📍' },
-  { id: 'Andhra Pradesh', name: 'Andhra Pradesh', icon: '📍' },
+  { id: 'All', name: 'All South India' },
+  { id: 'Tamil Nadu', name: 'Tamil Nadu' },
+  { id: 'Karnataka', name: 'Karnataka (Bangalore)' },
+  { id: 'Telangana', name: 'Telangana (Hyderabad)' },
+  { id: 'Kerala', name: 'Kerala' },
+  { id: 'Andhra Pradesh', name: 'Andhra Pradesh' },
 ];
 
 const POPULAR_SAFE_PICKS = [
@@ -116,7 +116,13 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
               <span>7,99,384+ Official MCA Verified Entities</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-              <span>🏛️ Verified Safe Companies Directory</span>
+              <svg className="w-7 h-7 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                <path d="M7 7h10"/>
+                <path d="M7 12h10"/>
+                <path d="M7 17h10"/>
+              </svg>
+              <span>Verified Safe Companies Directory</span>
             </h1>
             <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
               Search and explore Government-registered companies across South India (TN, KA, TG, KL, AP).
@@ -131,7 +137,10 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
               {stats.total.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <span className="text-emerald-400">✓</span> 5 South Indian States Covered
+              <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>5 South Indian States Covered</span>
             </div>
           </div>
         </div>
@@ -163,7 +172,10 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              🔍
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
             </span>
             <input
               type="text"
@@ -177,7 +189,10 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
                 onClick={() => setQuery('')}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
               >
-                ✕
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18"/>
+                  <path d="m6 6 12 12"/>
+                </svg>
               </button>
             )}
           </div>
@@ -190,7 +205,7 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
           >
             {SOUTH_STATES.map((st) => (
               <option key={st.id} value={st.id} className="bg-slate-900 text-slate-200">
-                {st.icon} {st.name}
+                {st.name}
               </option>
             ))}
           </select>
@@ -201,18 +216,23 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="px-4 py-3 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-emerald-400 transition"
           >
-            <option value="Active" className="bg-slate-900">🟢 Active Companies Only</option>
+            <option value="Active" className="bg-slate-900">Active Companies Only</option>
             <option value="All" className="bg-slate-900">All Registry Statuses</option>
           </select>
         </div>
 
         {/* Popular Quick-Search Tags */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400 pt-1">
-          <span className="font-semibold text-slate-300 mr-1">⚡ Quick Picks:</span>
+          <span className="font-semibold text-slate-300 mr-1 flex items-center gap-1">
+            <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Quick Picks:
+          </span>
           {POPULAR_SAFE_PICKS.map((pick) => (
             <button
               key={pick}
-              onClick={() => { setQuery(pick); performSearch(pick, selectedState); }}
+              onClick={() => setQuery(pick)}
               className="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 rounded-lg text-slate-300 hover:text-emerald-300 transition"
             >
               {pick}
@@ -249,7 +269,12 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
           </div>
         ) : companies.length === 0 ? (
           <div className="py-16 text-center bg-slate-900/50 border border-slate-800 rounded-2xl p-8 space-y-3">
-            <div className="text-4xl">🔍</div>
+            <div className="w-12 h-12 mx-auto rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </div>
             <h3 className="text-base font-bold text-slate-200">No matching registered companies found</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
               We could not find a Government MCA registry match for &quot;{query}&quot; in {selectedState}. 
@@ -269,14 +294,21 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
                       {comp.company_name}
                     </h3>
                     <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
-                      ✓ MCA Registered
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      MCA Registered
                     </span>
                   </div>
 
                   {/* CIN & State details */}
                   <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className={`px-2 py-0.5 rounded-md border text-[11px] font-medium ${getStateBadgeStyle(comp.state)}`}>
-                      📍 {comp.state}
+                    <span className={`px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center gap-1 ${getStateBadgeStyle(comp.state)}`}>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                      </svg>
+                      {comp.state}
                     </span>
 
                     <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-[11px]">
@@ -290,10 +322,25 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
                       <span className="text-slate-400 font-mono text-[11px]">CIN: {comp.cin}</span>
                       <button
                         onClick={() => handleCopyCin(comp.cin)}
-                        className="text-slate-400 hover:text-emerald-400 text-[11px] transition"
+                        className="text-slate-400 hover:text-emerald-400 text-[11px] transition flex items-center gap-1"
                         title="Copy CIN"
                       >
-                        {copiedCin === comp.cin ? '✓ Copied' : '📋 Copy'}
+                        {copiedCin === comp.cin ? (
+                          <>
+                            <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                            </svg>
+                            Copy
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
@@ -305,7 +352,11 @@ export const SafeCompanyExplorer: React.FC<SafeCompanyExplorerProps> = ({ onSele
                     onClick={() => onSelectCompany(comp.company_name, comp.cin)}
                     className="w-full mt-2 py-2 px-3 bg-slate-800/80 hover:bg-emerald-600 hover:text-slate-950 text-slate-300 border border-slate-700/80 hover:border-emerald-400 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5"
                   >
-                    <span>🎯 Verify a Job Posting for this Company</span>
+                    <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 14 14"/>
+                    </svg>
+                    <span>Verify a Job Posting for this Company</span>
                   </button>
                 )}
               </div>

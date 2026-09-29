@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL !== undefined 
   ? process.env.REACT_APP_API_URL 
-  : (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5050');
+  : (process.env.NODE_ENV === 'production' ? 'https://safe-hire.onrender.com' : 'http://localhost:5050');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -18,10 +18,11 @@ export const describeApiError = (err: any): string => {
     return err.response.data.error;
   }
   if (err?.code === 'ECONNABORTED') {
-    return 'The server took too long to respond. Is the backend running?';
+    return 'The server took too long to respond. Is the backend service active?';
   }
   if (err?.request) {
-    return `Could not reach the server at ${API_BASE_URL}. Make sure the backend is running on port 5050.`;
+    const targetUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'server');
+    return `Could not reach the server at ${targetUrl}. Please ensure the backend is running and accessible.`;
   }
   return 'An unexpected error occurred.';
 };
@@ -208,11 +209,7 @@ export const scanOfferLetter = async (input: File | string): Promise<OfferScanRe
   } else {
     const formData = new FormData();
     formData.append('file', input);
-    const response = await api.post('/api/scan-offer-letter', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/api/scan-offer-letter', formData);
     return response.data;
   }
 };

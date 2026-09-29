@@ -103,7 +103,7 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ initialData }) => {
         email: fetched.email || prev.email,
         website: fetched.website || prev.website,
       }));
-      setUrlSuccess(`✓ Auto-extracted details for "${fetched.company_name || 'Job Listing'}"!`);
+      setUrlSuccess(`Auto-extracted details for "${fetched.company_name || 'Job Listing'}"!`);
       setTimeout(() => setUrlSuccess(null), 6000);
     } catch (err: any) {
       setError(describeApiError(err));
@@ -205,7 +205,10 @@ contracts with official registered corporate sources.
       {showNotification && (
         <div className="fixed top-20 right-6 z-50 transition-all duration-300 transform translate-y-0">
           <div className="backdrop-blur-xl bg-slate-900/95 border-l-4 border-emerald-500 text-emerald-300 p-4 rounded-xl shadow-2xl border border-slate-700/80 max-w-md flex items-center space-x-3">
-            <span className="text-2xl">✨</span>
+            <svg className="w-6 h-6 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
             <div>
               <p className="font-bold text-white text-sm">Verification Complete</p>
               <p className="text-xs text-slate-300">AI ensemble, CIN lookup & rule diagnostics calculated.</p>
@@ -218,7 +221,7 @@ contracts with official registered corporate sources.
         {/* Hero Section */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold tracking-wide shadow-inner">
-            <span className="animate-pulse">⚡</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
             <span>AI-Powered Job Scam & Company Verification Core • v2.1</span>
           </div>
 
@@ -232,19 +235,40 @@ contracts with official registered corporate sources.
           {/* Key Security Pillars Badges */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
             <span className="text-xs font-medium px-3 py-1 bg-slate-800/80 border border-slate-700/70 rounded-lg text-slate-300 flex items-center space-x-1.5">
-              <span>🏷️</span>
+              <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+                <path d="M7 7h.01"/>
+              </svg>
               <span>Official MCA CIN Lookup</span>
             </span>
             <span className="text-xs font-medium px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-300 flex items-center space-x-1.5 font-semibold">
-              <span>🏛️</span>
+              <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                <path d="M7 7h10"/>
+                <path d="M7 12h10"/>
+                <path d="M7 17h10"/>
+              </svg>
               <span>MCA South India Registry (8L+ Entities)</span>
             </span>
             <span className="text-xs font-medium px-3 py-1 bg-slate-800/80 border border-slate-700/70 rounded-lg text-slate-300 flex items-center space-x-1.5">
-              <span>🧠</span>
+              <svg className="w-3.5 h-3.5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="16" height="16" x="4" y="4" rx="2"/>
+                <rect width="6" height="6" x="9" y="9" rx="1"/>
+                <path d="M15 2v2"/>
+                <path d="M15 20v2"/>
+                <path d="M2 15h2"/>
+                <path d="M2 9h2"/>
+                <path d="M20 15h2"/>
+                <path d="M20 9h2"/>
+                <path d="M9 2v2"/>
+                <path d="M9 20v2"/>
+              </svg>
               <span>NLP TF-IDF Ensemble (4 Models)</span>
             </span>
             <span className="text-xs font-medium px-3 py-1 bg-slate-800/80 border border-slate-700/70 rounded-lg text-slate-300 flex items-center space-x-1.5">
-              <span>🛡️</span>
+              <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
               <span>Fraud Pattern Heuristics</span>
             </span>
           </div>
@@ -254,7 +278,11 @@ contracts with official registered corporate sources.
         <div className="backdrop-blur-xl bg-slate-900/80 border border-cyan-500/30 rounded-2xl p-5 shadow-xl shadow-cyan-950/20 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-cyan-400 text-base">🌐</span>
+              <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
                 1-Click Job URL Auto-Fetcher (LinkedIn, Naukri, Indeed, Careers)
               </h3>
@@ -286,7 +314,9 @@ contracts with official registered corporate sources.
                 </>
               ) : (
                 <>
-                  <span>⚡</span>
+                  <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
                   <span>Auto-Fill Form</span>
                 </>
               )}
@@ -295,7 +325,9 @@ contracts with official registered corporate sources.
 
           {urlSuccess && (
             <div className="text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl font-medium flex items-center gap-2 animate-fadeIn">
-              <span>✨</span>
+              <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
               <span>{urlSuccess}</span>
             </div>
           )}
@@ -305,7 +337,11 @@ contracts with official registered corporate sources.
         <div className="backdrop-blur-xl bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              <span className="text-cyan-400">💡</span>
+              <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
               <span>Instant Test Presets:</span>
             </div>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -314,7 +350,7 @@ contracts with official registered corporate sources.
                 onClick={() => handleLoadPreset('realCin')}
                 className="px-3 py-1.5 text-xs font-medium bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg transition duration-200 flex items-center space-x-1.5"
               >
-                <span>🟢</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                 <span>Real Job + CIN (Microsoft)</span>
               </button>
               <button
@@ -322,7 +358,7 @@ contracts with official registered corporate sources.
                 onClick={() => handleLoadPreset('realNoEmailWeb')}
                 className="px-3 py-1.5 text-xs font-medium bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg transition duration-200 flex items-center space-x-1.5"
               >
-                <span>🔵</span>
+                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
                 <span>Real Job (No Email/Web)</span>
               </button>
               <button
@@ -330,16 +366,20 @@ contracts with official registered corporate sources.
                 onClick={() => handleLoadPreset('scam')}
                 className="px-3 py-1.5 text-xs font-medium bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg transition duration-200 flex items-center space-x-1.5"
               >
-                <span>🔴</span>
+                <span className="w-2 h-2 rounded-full bg-rose-400"></span>
                 <span>Scam Job (Data Entry)</span>
               </button>
               <button
                 type="button"
                 onClick={handleClear}
-                className="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg transition"
+                className="px-2.5 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-1"
                 title="Clear all fields"
               >
-                🧹 Clear
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18"/>
+                  <path d="m6 6 12 12"/>
+                </svg>
+                <span>Clear</span>
               </button>
             </div>
           </div>
@@ -353,7 +393,10 @@ contracts with official registered corporate sources.
           <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center space-x-2.5">
-                <span>🔍</span>
+                <svg className="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
                 <span>Company & Job Verification Form</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">Company name, job title, and description are required. CIN, email, and website are optional.</p>
@@ -370,8 +413,17 @@ contracts with official registered corporate sources.
                   <span className="text-[10px] text-slate-500 font-normal">Official / Trading Name</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    🏢
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+                      <path d="M9 22v-4h6v4"/>
+                      <path d="M8 6h.01"/>
+                      <path d="M16 6h.01"/>
+                      <path d="M8 10h.01"/>
+                      <path d="M16 10h.01"/>
+                      <path d="M8 14h.01"/>
+                      <path d="M16 14h.01"/>
+                    </svg>
                   </div>
                   <input
                     type="text"
@@ -393,8 +445,11 @@ contracts with official registered corporate sources.
                   <span className="text-[10px] text-slate-500 font-normal">Designation</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    💼
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="14" x="2" y="7" rx="2" ry="2"/>
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
                   </div>
                   <input
                     type="text"
@@ -414,7 +469,11 @@ contracts with official registered corporate sources.
             <div>
               <label htmlFor="cin" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
                 <span className="flex items-center space-x-1.5">
-                  <span>🏷️ MCA CIN (Corporate Identification Number)</span>
+                  <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+                    <path d="M7 7h.01"/>
+                  </svg>
+                  <span>MCA CIN (Corporate Identification Number)</span>
                   <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30">Optional</span>
                 </span>
                 <span className="text-[10px] text-slate-500 font-normal">21-character MCA Reg. No.</span>
@@ -439,7 +498,11 @@ contracts with official registered corporate sources.
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label htmlFor="description" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
-                  <span>📄 Job Description & Offer Details <span className="text-rose-400">*</span></span>
+                  <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <span>Job Description & Offer Details <span className="text-rose-400">*</span></span>
                 </label>
                 <span className={`text-[11px] font-mono px-2 py-0.5 rounded border ${
                   formData.description.length >= MAX_DESCRIPTION_LENGTH - 50
@@ -481,8 +544,11 @@ contracts with official registered corporate sources.
                   <span className="text-[10px] text-slate-500 font-normal">HR / Recruiter Email</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    ✉️
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="16" x="2" y="4" rx="2"/>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    </svg>
                   </div>
                   <input
                     type="email"
@@ -506,8 +572,12 @@ contracts with official registered corporate sources.
                   <span className="text-[10px] text-slate-500 font-normal">Official Domain URL</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
-                    🌐
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="2" y1="12" x2="22" y2="12"/>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
                   </div>
                   <input
                     type="text"
@@ -535,7 +605,10 @@ contracts with official registered corporate sources.
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span>🛡️</span>
+                  <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                  </svg>
                   <span>Run AI Verification Analysis</span>
                 </div>
               )}
@@ -545,7 +618,11 @@ contracts with official registered corporate sources.
             {error && (
               <div className="bg-rose-500/10 border-l-4 border-rose-500 text-rose-300 p-4 rounded-xl border border-rose-500/30 text-sm">
                 <p className="font-bold flex items-center space-x-2">
-                  <span>❌</span>
+                  <svg className="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                  </svg>
                   <span>Analysis Request Failed</span>
                 </p>
                 <p className="mt-1 text-xs text-rose-200">{error}</p>
@@ -575,7 +652,18 @@ contracts with official registered corporate sources.
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg shadow-emerald-500/10'
                     : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-lg shadow-rose-500/10'
                 }`}>
-                  <span className="text-lg">{result.prediction === 'REAL' ? '✅' : '❌'}</span>
+                  {result.prediction === 'REAL' ? (
+                    <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                      <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="15" y1="9" x2="9" y2="15"/>
+                      <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                  )}
                   <span>{result.prediction === 'REAL' ? 'VERIFIED LEGITIMATE (REAL)' : 'DETECTED FRAUDULENT (FAKE)'}</span>
                 </span>
               </div>
@@ -607,9 +695,9 @@ contracts with official registered corporate sources.
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Threat / Risk Tier</span>
                   <div className="flex items-center space-x-3 mt-2">
-                    <span className="text-3xl">
-                      {result.risk_level === 'High' ? '🔴' : result.risk_level === 'Medium' ? '🟡' : '🟢'}
-                    </span>
+                    <span className={`w-3.5 h-3.5 rounded-full shrink-0 ${
+                      result.risk_level === 'High' ? 'bg-rose-500' : result.risk_level === 'Medium' ? 'bg-amber-400' : 'bg-emerald-400'
+                    }`}></span>
                     <div>
                       <p className={`text-2xl font-bold ${
                         result.risk_level === 'High' ? 'text-rose-400' : result.risk_level === 'Medium' ? 'text-amber-400' : 'text-emerald-400'
@@ -631,7 +719,12 @@ contracts with official registered corporate sources.
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">MCA CIN Verification</span>
                   <p className="text-sm font-semibold text-white mt-2 leading-snug">
                     {result.cin_verified === true ? (
-                      <span className="text-emerald-400 font-bold">✅ Verified Government MCA CIN</span>
+                      <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Verified Government MCA CIN
+                      </span>
                     ) : (
                       result.cin_verified === 'Not Provided' ? (
                         <span className="text-slate-400">CIN Not Provided (Registry Lookup Used)</span>
@@ -649,7 +742,7 @@ contracts with official registered corporate sources.
                 <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between">
                   <span>Registry Status:</span>
                   <span className={`font-semibold ${result.tamil_nadu_registered === true ? 'text-emerald-400' : 'text-slate-400'}`}>
-                    {result.tamil_nadu_registered === true ? '✅ Registered' : (result.tamil_nadu_registered === false ? '⚠️ Not Found' : 'Unknown')}
+                    {result.tamil_nadu_registered === true ? 'Registered' : (result.tamil_nadu_registered === false ? 'Not Found' : 'Unknown')}
                   </span>
                 </div>
               </div>
@@ -658,14 +751,17 @@ contracts with official registered corporate sources.
             {/* Key Diagnostic Signals */}
             <div className="bg-slate-950/60 border border-slate-800/80 p-6 rounded-2xl space-y-4">
               <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                <span>🔎</span>
+                <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
                 <span>Automated Forensic Signals</span>
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {result.reasons && result.reasons.length > 0 ? (
                   result.reasons.map((reason, idx) => (
                     <div key={idx} className="flex items-start space-x-2.5 bg-slate-900/80 p-3 rounded-xl border border-slate-800/60">
-                      <span className="text-cyan-400 text-sm mt-0.5">📌</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 shrink-0"></span>
                       <p className="text-xs text-slate-300 leading-relaxed">{reason}</p>
                     </div>
                   ))
@@ -682,7 +778,10 @@ contracts with official registered corporate sources.
                 onClick={() => generateSecurityAuditPDF(formData, result)}
                 className="flex-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-lg shadow-cyan-950/30 flex items-center justify-center space-x-2 text-sm"
               >
-                <span>📜</span>
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
                 <span>Download Official Audit Certificate (PDF)</span>
               </button>
               <button
@@ -691,7 +790,14 @@ contracts with official registered corporate sources.
                 className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold rounded-xl transition border border-slate-700 flex items-center justify-center space-x-2 text-xs"
                 title="Download raw forensic log"
               >
-                <span>📄</span>
+                <svg className="w-4 h-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/>
+                  <line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
                 <span>Audit Log (.txt)</span>
               </button>
               <button

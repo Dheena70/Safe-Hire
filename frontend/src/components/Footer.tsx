@@ -4,7 +4,7 @@ import shieldLogo from '../assets/safe-hire-shield.png';
 interface Props {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
-  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'safe-companies') => void;
+  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'safe-companies' | 'scam-board') => void;
   onTrigger404?: () => void;
 }
 
@@ -35,7 +35,13 @@ export const Footer: React.FC<Props> = ({
             </p>
             <div className="space-y-1 text-xs text-slate-400">
               <p className="text-slate-300 font-semibold font-sans">Official Support & Inquiries:</p>
-              <p>📧 contact@safehire.ai | support@safehire.ai</p>
+              <p className="flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="16" x="2" y="4" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+                <span>safehire20@gmail.com</span>
+              </p>
             </div>
           </div>
 
@@ -94,6 +100,23 @@ export const Footer: React.FC<Props> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                   <span>Verified Safe Companies (7.99L MCA)</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#scam-board"
+                  onClick={(e) => {
+                    if (onSelectTab) {
+                      e.preventDefault();
+                      onSelectTab('scam-board');
+                    }
+                  }}
+                  className="text-slate-400 hover:text-rose-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-rose-500/50 rounded-lg"
+                >
+                  <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>Community Scam Alert Board</span>
                 </a>
               </li>
               {onTrigger404 && (

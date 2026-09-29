@@ -107,12 +107,13 @@ class JobFraudDetectorTrainer:
         # Free email provider check
         def is_free_email(email):
             if pd.isna(email) or not str(email).strip():
-                return 1
+                return 0
             free_domains = {'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'rediff.com', 'aol.com', 'mail.com'}
-            if '@' in str(email):
-                domain = str(email).split('@')[-1].lower()
+            email_str = str(email).strip().lower()
+            if '@' in email_str:
+                domain = email_str.split('@')[-1]
                 return 1 if domain in free_domains else 0
-            return 1
+            return 0
 
         features['is_free_email'] = df['email'].apply(is_free_email)
 
@@ -128,14 +129,15 @@ class JobFraudDetectorTrainer:
         # Domain mismatch check
         def domain_mismatch(email, website):
             if pd.isna(email) or pd.isna(website) or not str(website).strip():
-                return 1
-            email_str = str(email).lower()
-            if '@' not in email_str:
-                return 1
+                return 0
+            email_str = str(email).strip().lower()
+            web_str = str(website).strip().lower()
+            if '@' not in email_str or not web_str or web_str in {'none', 'null', 'n/a', ''}:
+                return 0
             email_domain = email_str.split('@')[-1].strip()
-            clean_web = str(website).lower().replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].strip()
+            clean_web = web_str.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].strip()
             if not clean_web:
-                return 1
+                return 0
             return 0 if (email_domain in clean_web or clean_web in email_domain) else 1
 
         features['domain_mismatch'] = df.apply(
