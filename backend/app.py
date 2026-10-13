@@ -2106,7 +2106,7 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
 
 @app.route('/api/scan-offer-letter', methods=['POST'])
 def scan_offer_letter():
-    """Scan uploaded offer letter PDF document or pasted text with scanned image forensic fallback"""
+    """Scan uploaded offer letter PDF document, image (PNG, JPG, WEBP), or pasted text with forensic fallback"""
     rate_err = apply_rate_limit(max_requests=25, window_seconds=60)
     if rate_err:
         return rate_err
@@ -2116,6 +2116,8 @@ def scan_offer_letter():
         filename = "pasted_text"
         meta_info = {'page_count': 1, 'producer': '', 'creator': ''}
         file_size_kb = 0
+        is_image_file = False
+        image_meta = {}
 
         # Check if file was uploaded in multipart/form-data
         if 'file' in request.files:
@@ -2127,13 +2129,47 @@ def scan_offer_letter():
 
             file_size_kb = len(file_bytes) // 1024
 
-            if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
-                extracted_text, meta_info = extract_text_and_meta_from_pdf(file_bytes)
-            else:
+            # Check for client-supplied OCR text
+            client_ocr = request.form.get('ocr_text', '').strip()
+            if client_ocr:
+                extracted_text = sanitize_text(client_ocr, max_len=30000)
+
+            # Determine file type
+            lower_name = filename.lower()
+            is_pdf = lower_name.endswith('.pdf') or file_bytes[:4] == b'%PDF'
+            is_image = (
+                lower_name.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff')) or
+                file_bytes[:8] == b'\x89PNG\r\n\x1a\n' or
+                file_bytes[:2] == b'\xff\xd8' or
+                file_bytes[:4] == b'RIFF'
+            )
+
+            if is_pdf:
+                pdf_text, meta_info = extract_text_and_meta_from_pdf(file_bytes)
+                if not extracted_text:
+                    extracted_text = pdf_text
+            elif is_image:
+                is_image_file = True
                 try:
-                    extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
-                except Exception:
-                    extracted_text = ""
+                    import io
+                    from PIL import Image
+                    with Image.open(io.BytesIO(file_bytes)) as img:
+                        image_meta = {
+                            'format': img.format or 'Image',
+                            'width': img.width,
+                            'height': img.height,
+                            'mode': img.mode
+                        }
+                        meta_info['image_dimensions'] = f"{img.width}x{img.height}"
+                        meta_info['producer'] = f"{img.format} Raster Graphic"
+                except Exception as img_err:
+                    logger.warning(f"Failed to inspect image with PIL: {img_err}")
+            else:
+                if not extracted_text:
+                    try:
+                        extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
+                    except Exception:
+                        extracted_text = ""
         else:
             data = request.get_json(silent=True) or request.form
             extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
@@ -2143,11 +2179,19 @@ def scan_offer_letter():
             analysis = analyze_offer_letter_text(extracted_text)
             analysis['filename'] = filename
             analysis['scanned_at'] = datetime.now().isoformat()
-            analysis['is_scanned_image'] = False
+            analysis['is_scanned_image'] = is_image_file
+            analysis['is_photo'] = is_image_file
+            if is_image_file and image_meta:
+                analysis['image_meta'] = image_meta
+                if 'extracted_details' in analysis:
+                    analysis['extracted_details']['file_size_kb'] = file_size_kb
+                    analysis['extracted_details']['image_dimensions'] = f"{image_meta.get('width', 0)}x{image_meta.get('height', 0)}"
+                if 'green_flags' in analysis:
+                    analysis['green_flags'].insert(0, f"Optical Character Recognition (OCR) successfully extracted text from {image_meta.get('format', 'image')} document ({image_meta.get('width', 0)}x{image_meta.get('height', 0)} px).")
             return jsonify(analysis)
 
         # Scanned / Image-only Document Handling: Graceful Forensic Report instead of blocking 400 error
-        clean_fn = re.sub(r'[-_.]', ' ', filename).replace('.pdf', '')
+        clean_fn = re.sub(r'[-_.]', ' ', filename).replace('.pdf', '').replace('.jpg', '').replace('.png', '').replace('.jpeg', '').replace('.webp', '')
         fn_parts = [p.strip() for p in clean_fn.split() if p.strip()]
 
         candidate_from_fn = ""
@@ -2156,23 +2200,26 @@ def scan_offer_letter():
             candidate_from_fn = " ".join(fn_parts[:2]).capitalize()
             role_from_fn = " ".join(fn_parts[2:]).capitalize() if len(fn_parts) > 2 else "Offered Position"
 
+        doc_type_label = "Photo / Image Document" if is_image_file else "Scanned / Raster Image PDF"
         forensic_red_flags = [
-            "Scanned / Raster Image PDF: No selectable digital vector text layer found in this document. Fake job syndicates frequently share image-only PDFs to prevent automated security analyzers and text detectors from reading fraudulent payment/deposit clauses.",
-            f"High File Size ({file_size_kb} KB) with zero digital text: Confirms this document is a photograph or rasterized image scan rather than a native digital HR export."
+            f"{doc_type_label}: No selectable digital vector text layer found in this file. Fraud syndicates frequently share image-only letters on WhatsApp or Telegram to bypass automated security checks.",
+            f"File Size: {file_size_kb} KB. Photograph or rasterized graphic rather than a native digital HR export."
         ]
 
         forensic_recommendations = [
             "Check if the recruiter sent an official digital PDF generated by corporate ATS software (e.g. Workday, DocuSign, Adobe Sign, Taleo).",
             "NEVER pay any security deposit, laptop fee, document verification charge, or training fee via UPI or personal accounts.",
-            "To perform deep payment keyword & webmail verification, copy-paste the visible text into the 'Paste Text' tab above."
+            "You can also copy or type the visible text into the 'Paste Text' tab above to run instant payment and company verification."
         ]
 
         scanned_report = {
             "verdict": "SCANNED_DOCUMENT_REVIEW",
-            "status_label": "SCANNED / IMAGE-BASED OFFER LETTER",
-            "legitimacy_score": 45,
-            "risk_score": 55,
+            "status_label": "PHOTO / IMAGE OFFER LETTER REVIEW" if is_image_file else "SCANNED / IMAGE-BASED OFFER LETTER",
+            "legitimacy_score": 40 if is_image_file else 45,
+            "risk_score": 60 if is_image_file else 55,
             "is_scanned_image": True,
+            "is_photo": is_image_file,
+            "image_meta": image_meta,
             "filename": filename,
             "scanned_at": datetime.now().isoformat(),
             "extracted_details": {
@@ -2184,14 +2231,15 @@ def scan_offer_letter():
                 "char_count": len(extracted_text),
                 "file_size_kb": file_size_kb,
                 "page_count": meta_info.get('page_count', 1),
-                "producer": meta_info.get('producer') or "Raster PDF Export"
+                "producer": meta_info.get('producer') or ("Photo / Screenshot" if is_image_file else "Raster PDF Export"),
+                "image_dimensions": meta_info.get('image_dimensions') or ("Photo Graphic" if is_image_file else "")
             },
             "red_flags": forensic_red_flags,
             "green_flags": [
-                f"Valid PDF container structure verified ({meta_info.get('page_count', 1)} page(s), {file_size_kb} KB)."
+                f"Valid image container verified ({image_meta.get('format', 'Image')}, {image_meta.get('width', 0)}x{image_meta.get('height', 0)} px, {file_size_kb} KB)." if is_image_file else f"Valid PDF container structure verified ({meta_info.get('page_count', 1)} page(s), {file_size_kb} KB)."
             ],
             "recommendations": forensic_recommendations,
-            "raw_text_preview": "[Scanned Document / Raster Image PDF - No digital text layer detected. Document Forensics applied to structure & metadata.]"
+            "raw_text_preview": f"[{doc_type_label} - Document Forensics applied to image structure & metadata.]"
         }
 
         return jsonify(scanned_report)

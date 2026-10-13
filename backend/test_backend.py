@@ -266,7 +266,47 @@ print(f"  Verdict: {scan_data['verdict']}, Legitimacy Score: {scan_data['legitim
 assert scan_data['verdict'] == 'HIGH_RISK_FRAUD', f"Expected HIGH_RISK_FRAUD, got {scan_data['verdict']}"
 assert scan_data['legitimacy_score'] < 50
 assert any('fee' in rf.lower() or 'demand' in rf.lower() or 'payment' in rf.lower() for rf in scan_data['red_flags'])
-print("  [PASS] Offer Letter Scanner accurately flagged upfront fee demand and webmail as HIGH_RISK_FRAUD.")
+
+# Test Photo/Image upload with OCR text
+import io
+from PIL import Image
+dummy_img = Image.new('RGB', (800, 1000), color=(255, 255, 255))
+img_byte_arr = io.BytesIO()
+dummy_img.save(img_byte_arr, format='PNG')
+img_byte_arr.seek(0)
+
+img_res = client.post(
+    '/api/scan-offer-letter',
+    data={
+        'file': (img_byte_arr, 'offer_letter_photo.png', 'image/png'),
+        'ocr_text': fake_offer_text
+    },
+    content_type='multipart/form-data'
+)
+assert img_res.status_code == 200, f"Status {img_res.status_code}: {img_res.data}"
+img_scan = img_res.json
+assert img_scan['is_photo'] is True
+assert img_scan['verdict'] == 'HIGH_RISK_FRAUD'
+assert img_scan['image_meta']['format'] == 'PNG'
+print(f"  [PASS] Photo/Image OCR upload verified: {img_scan['image_meta']['width']}x{img_scan['image_meta']['height']}px, verdict: {img_scan['verdict']}")
+
+# Test Photo/Image upload without OCR text (fallback to forensic review)
+img_byte_arr_2 = io.BytesIO()
+dummy_img.save(img_byte_arr_2, format='PNG')
+img_byte_arr_2.seek(0)
+img_raw_res = client.post(
+    '/api/scan-offer-letter',
+    data={
+        'file': (img_byte_arr_2, 'scanned_photo.png', 'image/png')
+    },
+    content_type='multipart/form-data'
+)
+assert img_raw_res.status_code == 200
+img_raw_scan = img_raw_res.json
+assert img_raw_scan['is_photo'] is True
+assert img_raw_scan['verdict'] == 'SCANNED_DOCUMENT_REVIEW'
+print(f"  [PASS] Photo fallback forensic review verified: {img_raw_scan['status_label']}")
+print("  [PASS] Offer Letter Scanner accurately flagged upfront fee demand, webmail, and supported image uploads.")
 
 # 13. SSRF Protection & URL Fetcher Test
 print("\n[Test 13] Testing POST /api/fetch-job-url SSRF Hardening...")

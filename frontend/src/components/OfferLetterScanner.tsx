@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Tesseract from 'tesseract.js';
 import { scanOfferLetter, OfferScanResponse, describeApiError } from '../services/api';
 import { ResumeScorer } from './ResumeScorer';
 
@@ -16,14 +17,48 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
       setDocType(initialDocumentType);
     }
   }, [initialDocumentType]);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [pastedText, setPastedText] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [ocrProgress, setOcrProgress] = useState<number>(0);
+  const [ocrStatusText, setOcrStatusText] = useState<string>('');
+  const [extractedOcrText, setExtractedOcrText] = useState<string>('');
+  const [showOcrText, setShowOcrText] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OfferScanResponse | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
+  const isImageFile = (file: File) => {
+    return file.type.startsWith('image/') || /\.(png|jpe?g|webp|bmp)$/i.test(file.name);
+  };
+
+  const isAllowedFile = (file: File) => {
+    const name = file.name.toLowerCase();
+    return (
+      name.endsWith('.pdf') ||
+      name.endsWith('.txt') ||
+      name.endsWith('.png') ||
+      name.endsWith('.jpg') ||
+      name.endsWith('.jpeg') ||
+      name.endsWith('.webp') ||
+      file.type.startsWith('image/') ||
+      file.type === 'application/pdf' ||
+      file.type === 'text/plain'
+    );
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -34,31 +69,47 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
     setIsDragging(false);
   };
 
+  const onSelectFile = (file: File) => {
+    if (isAllowedFile(file)) {
+      setSelectedFile(file);
+      setError(null);
+      if (isImageFile(file)) {
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        const url = URL.createObjectURL(file);
+        setImagePreviewUrl(url);
+        const img = new Image();
+        img.onload = () => {
+          setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.src = url;
+      } else {
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        setImagePreviewUrl(null);
+        setImageDimensions(null);
+      }
+    } else {
+      setError('Please upload a valid PDF (.pdf), Photo / Image (.jpg, .png, .jpeg, .webp), or Text (.txt) offer letter.');
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.txt')) {
-        setSelectedFile(file);
-        setError(null);
-      } else {
-        setError('Please upload a valid PDF (.pdf) or Text (.txt) offer letter.');
-      }
+      onSelectFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      setError(null);
+      onSelectFile(e.target.files[0]);
     }
   };
 
   const handleScan = async () => {
     setError(null);
     if (activeMode === 'upload' && !selectedFile) {
-      setError('Please select or drag-and-drop an offer letter PDF to scan.');
+      setError('Please select or drag-and-drop an offer letter (PDF, photo/image, or text) to scan.');
       return;
     }
     if (activeMode === 'paste' && (!pastedText.trim() || pastedText.trim().length < 20)) {
@@ -67,21 +118,53 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
     }
 
     setLoading(true);
+    setOcrProgress(0);
     try {
+      let ocrText = '';
+      if (activeMode === 'upload' && selectedFile && isImageFile(selectedFile)) {
+        setOcrStatusText('Initializing Optical Character Recognition (OCR)...');
+        setOcrProgress(5);
+        try {
+          const { data } = await Tesseract.recognize(selectedFile, 'eng', {
+            logger: (m) => {
+              if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+                setOcrProgress(Math.round(m.progress * 100));
+                setOcrStatusText(`OCR Scanning Document: ${Math.round(m.progress * 100)}%`);
+              } else if (m.status) {
+                setOcrStatusText(`AI Engine: ${m.status.replace(/_/g, ' ')}...`);
+              }
+            }
+          });
+          ocrText = data.text || '';
+          setExtractedOcrText(ocrText);
+        } catch (ocrErr: any) {
+          console.warn('Browser OCR error:', ocrErr);
+        }
+      }
+
       const input = activeMode === 'upload' ? selectedFile! : pastedText;
-      const res = await scanOfferLetter(input);
+      const res = await scanOfferLetter(input, ocrText);
       setResult(res);
     } catch (err: any) {
       setError(describeApiError(err));
     } finally {
       setLoading(false);
+      setOcrStatusText('');
+      setOcrProgress(0);
     }
   };
 
   const handleReset = () => {
     setResult(null);
     setSelectedFile(null);
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      setImagePreviewUrl(null);
+    }
+    setImageDimensions(null);
     setPastedText('');
+    setExtractedOcrText('');
+    setShowOcrText(false);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -185,7 +268,7 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Upload PDF
+              Upload PDF / Photo
             </button>
             <button
               onClick={() => { setActiveMode('paste'); setError(null); }}
@@ -251,7 +334,7 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".pdf,.txt"
+                accept=".pdf,.txt,.png,.jpg,.jpeg,.webp"
                 className="hidden"
               />
               <div
@@ -259,7 +342,7 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-4 ${
+                className={`border-2 border-dashed rounded-2xl p-6 sm:p-10 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-4 ${
                   isDragging
                     ? 'border-cyan-400 bg-cyan-950/20 scale-[0.99]'
                     : selectedFile
@@ -267,36 +350,77 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                     : 'border-slate-700/80 bg-slate-950/50 hover:border-cyan-500/50 hover:bg-slate-950/80'
                 }`}
               >
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 ${
-                  selectedFile
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 group-hover:scale-110'
-                }`}>
-                  {selectedFile ? (
-                    <svg className="w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                      <path d="m9 15 2 2 4-4"/>
-                    </svg>
-                  ) : (
-                    <svg className="w-8 h-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-base font-bold text-slate-200">
-                    {selectedFile ? selectedFile.name : 'Click to upload or drag & drop Offer Letter'}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {selectedFile
-                      ? `${(selectedFile.size / 1024).toFixed(1)} KB — Ready for AI Forensic Analysis`
-                      : 'Supports PDF (.pdf) and Plain Text (.txt) up to 10MB'}
-                  </p>
-                </div>
+                {selectedFile && imagePreviewUrl ? (
+                  /* Photo / Image Preview Thumbnail */
+                  <div className="space-y-4 max-w-sm mx-auto">
+                    <div className="relative rounded-xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950 max-h-56 flex items-center justify-center">
+                      <img
+                        src={imagePreviewUrl}
+                        alt="Offer Letter Document Preview"
+                        className="max-h-52 w-auto object-contain rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-slate-100 truncate">
+                        {selectedFile.name}
+                      </p>
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          Photo / Image Document
+                        </span>
+                        {imageDimensions && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                            {imageDimensions.width}x{imageDimensions.height} px
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                          {(selectedFile.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 pt-1">
+                        AI OCR will automatically read text, clauses, and company signatures from this photo.
+                      </p>
+                    </div>
+                  </div>
+                ) : selectedFile ? (
+                  /* Document File (PDF / TXT) */
+                  <>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <svg className="w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <path d="m9 15 2 2 4-4"/>
+                      </svg>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-base font-bold text-slate-200">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {(selectedFile.size / 1024).toFixed(1)} KB — Ready for AI Forensic Analysis
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  /* Empty Dropzone: Supports PDF and Photos */
+                  <>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30">
+                      <svg className="w-8 h-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-base font-bold text-slate-200">
+                        Click to upload or drag & drop Offer Letter or Photo
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Supports PDF (.pdf), Photos / Screenshots (.jpg, .png, .jpeg, .webp), and Plain Text (.txt) up to 10MB
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 {selectedFile && (
                   <button
@@ -304,6 +428,11 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFile(null);
+                      if (imagePreviewUrl) {
+                        URL.revokeObjectURL(imagePreviewUrl);
+                        setImagePreviewUrl(null);
+                      }
+                      setImageDimensions(null);
                       if (fileInputRef.current) fileInputRef.current.value = '';
                     }}
                     className="text-xs text-rose-400 hover:text-rose-300 underline font-medium"
@@ -336,24 +465,34 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
             <button
               onClick={handleScan}
               disabled={loading}
-              className="w-full py-3.5 px-6 rounded-xl font-bold text-sm tracking-wide text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 focus:ring-4 focus:ring-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20 transition-all duration-300 flex items-center justify-center gap-2"
+              className="w-full py-3.5 px-6 rounded-xl font-bold text-sm tracking-wide text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 focus:ring-4 focus:ring-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20 transition-all duration-300 flex flex-col items-center justify-center gap-1.5"
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Forensic AI Engine Scanning Offer Letter...</span>
+                  <div className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>{ocrStatusText || 'Forensic AI Engine Scanning Offer Letter...'}</span>
+                  </div>
+                  {ocrProgress > 0 && (
+                    <div className="w-full max-w-xs bg-slate-900/80 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-cyan-400 h-full transition-all duration-300"
+                        style={{ width: `${ocrProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     <path d="m9 12 2 2 4-4"/>
                   </svg>
                   <span>Analyze Offer Letter Legitimacy</span>
-                </>
+                </div>
               )}
             </button>
           </div>
@@ -388,7 +527,11 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                     }`}
                   />
                   <span className="text-xs font-bold tracking-wider uppercase text-slate-400">
-                    {result.is_scanned_image ? 'Scanned Document Forensics' : 'Forensic Verdict'}
+                    {result.is_photo
+                      ? 'Photo / Image Forensic Analysis'
+                      : result.is_scanned_image
+                      ? 'Scanned Document Forensics'
+                      : 'Forensic Verdict'}
                   </span>
                 </div>
                 <h3
@@ -407,6 +550,8 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                 <p className="text-sm text-slate-300 max-w-lg">
                   {result.verdict === 'GENUINE'
                     ? 'No predatory clauses or suspicious fee demands detected. Always verify salary terms and physical workplace.'
+                    : result.is_photo && result.verdict === 'SCANNED_DOCUMENT_REVIEW'
+                    ? 'The uploaded file is a photo/screenshot without embedded digital vector fonts. Fake job syndicates frequently share appointment letters on WhatsApp or Telegram as photos to bypass automated scanners. Review the visual forensics below.'
                     : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
                     ? 'The uploaded document contains scanned raster images without selectable vector text layers. Many scam networks use scanned bitmaps to evade automated fraud detectors. Review the document forensics below, or paste the text directly.'
                     : result.verdict === 'SUSPICIOUS'
@@ -538,12 +683,50 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                 <div className="text-xs text-slate-400">Document Size & Format</div>
                 <div className="text-sm font-semibold text-slate-100 mt-1 truncate">
                   {result.extracted_details.file_size_kb
-                    ? `${result.extracted_details.file_size_kb} KB ${result.is_scanned_image ? '(Image PDF)' : ''}`
+                    ? `${result.extracted_details.file_size_kb} KB ${
+                        result.extracted_details.image_dimensions
+                          ? `(${result.extracted_details.image_dimensions})`
+                          : result.is_photo
+                          ? '(Photo Graphic)'
+                          : result.is_scanned_image
+                          ? '(Scanned PDF)'
+                          : ''
+                      }`
                     : `${result.extracted_details.char_count} characters`}
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Extracted OCR Text Preview Toggle */}
+          {(extractedOcrText || (result.raw_text_preview && !result.raw_text_preview.startsWith('['))) && (
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="9" y1="9" x2="15" y2="9"/>
+                    <line x1="9" y1="13" x2="15" y2="13"/>
+                    <line x1="9" y1="17" x2="13" y2="17"/>
+                  </svg>
+                  <span>Extracted OCR / Document Text</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setShowOcrText(!showOcrText)}
+                  className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  {showOcrText ? 'Hide Text' : 'View Extracted Text'}
+                </button>
+              </div>
+
+              {showOcrText && (
+                <div className="p-4 bg-slate-950 rounded-xl border border-slate-800/80 text-xs font-mono text-slate-300 max-h-60 overflow-y-auto whitespace-pre-wrap leading-relaxed animate-fadeIn">
+                  {extractedOcrText || result.raw_text_preview}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Red & Green Flags Breakdown */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

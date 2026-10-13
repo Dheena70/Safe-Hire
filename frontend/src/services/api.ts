@@ -154,6 +154,13 @@ export interface OfferScanResponse {
   legitimacy_score: number; // 0 - 100
   risk_score: number;
   is_scanned_image?: boolean;
+  is_photo?: boolean;
+  image_meta?: {
+    format?: string;
+    width?: number;
+    height?: number;
+    mode?: string;
+  };
   extracted_details: {
     company_name: string;
     job_title: string;
@@ -164,6 +171,7 @@ export interface OfferScanResponse {
     file_size_kb?: number;
     page_count?: number;
     producer?: string;
+    image_dimensions?: string;
   };
   red_flags: string[];
   green_flags: string[];
@@ -263,13 +271,16 @@ export const predictJob = async (data: PredictionRequest): Promise<PredictionRes
   return response.data;
 };
 
-export const scanOfferLetter = async (input: File | string): Promise<OfferScanResponse> => {
+export const scanOfferLetter = async (input: File | string, ocrText?: string): Promise<OfferScanResponse> => {
   if (typeof input === 'string') {
     const response = await api.post('/api/scan-offer-letter', { text: input });
     return response.data;
   } else {
     const formData = new FormData();
     formData.append('file', input);
+    if (ocrText && ocrText.trim()) {
+      formData.append('ocr_text', ocrText.trim());
+    }
     const response = await api.post('/api/scan-offer-letter', formData);
     return response.data;
   }
