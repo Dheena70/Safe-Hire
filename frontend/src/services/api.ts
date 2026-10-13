@@ -100,7 +100,19 @@ export interface AuthResponse {
     email: string;
     phone?: string;
     role: 'admin' | 'user';
+    picture?: string;
   };
+}
+
+export interface GoogleAuthRequest {
+  credential?: string;
+  token?: string;
+  access_token?: string;
+  id_token?: string;
+  email?: string;
+  name?: string;
+  google_id?: string;
+  picture?: string;
 }
 
 export interface RecentPrediction {
@@ -308,6 +320,11 @@ export const registerUser = async (data: RegisterRequest): Promise<{ message: st
 
 export const loginUser = async (data: LoginRequest): Promise<AuthResponse> => {
   const response = await api.post('/auth/login', data);
+  return response.data;
+};
+
+export const loginWithGoogle = async (data: GoogleAuthRequest): Promise<AuthResponse> => {
+  const response = await api.post('/auth/google', data);
   return response.data;
 };
 

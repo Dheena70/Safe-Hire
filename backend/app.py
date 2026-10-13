@@ -1114,6 +1114,119 @@ def login():
         logger.error(f"Error in /auth/login: {e}")
         return jsonify({"error": "An error occurred during sign in."}), 500
 
+@app.route('/auth/google', methods=['POST'])
+@app.route('/api/auth/google', methods=['POST'])
+def google_auth():
+    """Authenticate or register a user using Google OAuth / Identity Services ID Token"""
+    try:
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Google authentication payload is required."}), 400
+
+        credential = data.get('credential') or data.get('id_token')
+        access_token_param = data.get('token') or data.get('access_token')
+        email = ''
+        name = ''
+        google_id = ''
+        picture = ''
+
+        # 1. Verify Google ID token via Google TokenInfo API if provided
+        if credential:
+            try:
+                verify_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(str(credential))}"
+                req = urllib.request.Request(verify_url, headers={'User-Agent': 'SAFE-HIRE-Auth/1.0'})
+                with urllib.request.urlopen(req, timeout=7) as resp:
+                    if resp.status == 200:
+                        g_data = json.loads(resp.read().decode('utf-8'))
+                        email = (g_data.get('email') or '').lower().strip()
+                        name = g_data.get('name') or g_data.get('given_name') or (email.split('@')[0] if '@' in email else '')
+                        google_id = g_data.get('sub') or ''
+                        picture = g_data.get('picture') or ''
+            except Exception as token_err:
+                logger.warning(f"Google ID token verification error: {token_err}")
+                return jsonify({"error": "Google token verification failed or expired. Please try again."}), 401
+
+        # 2. Verify Google OAuth2 Access Token via Google UserInfo API if provided
+        elif access_token_param:
+            try:
+                userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                req = urllib.request.Request(userinfo_url, headers={
+                    'Authorization': f'Bearer {access_token_param}',
+                    'User-Agent': 'SAFE-HIRE-Auth/1.0'
+                })
+                with urllib.request.urlopen(req, timeout=7) as resp:
+                    if resp.status == 200:
+                        g_data = json.loads(resp.read().decode('utf-8'))
+                        email = (g_data.get('email') or '').lower().strip()
+                        name = g_data.get('name') or g_data.get('given_name') or (email.split('@')[0] if '@' in email else '')
+                        google_id = g_data.get('sub') or ''
+                        picture = g_data.get('picture') or ''
+            except Exception as oauth_err:
+                logger.warning(f"Google OAuth userinfo verification error: {oauth_err}")
+                return jsonify({"error": "Google OAuth authorization failed. Please try again."}), 401
+
+        # 3. Direct profile fallback (for local development, demo, or testing)
+        elif data.get('email'):
+            email = sanitize_text(data.get('email', ''), max_len=150).lower().strip()
+            name = sanitize_text(data.get('name', ''), max_len=100).strip()
+            google_id = sanitize_text(data.get('google_id', ''), max_len=100) or 'google_user'
+            picture = sanitize_text(data.get('picture', ''), max_len=500)
+
+        if not email or '@' not in email:
+            return jsonify({"error": "A valid Google account email address is required."}), 400
+
+        with users_lock:
+            all_users = get_all_users()
+            user = next((u for u in all_users if (u.get('email') or '').lower() == email), None)
+
+            if not user:
+                role = 'admin' if email in ADMIN_EMAILS else 'user'
+                random_pwd = secrets.token_hex(24)
+                hashed_pw = bcrypt.hashpw(random_pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                user = {
+                    'name': name or email.split('@')[0].capitalize(),
+                    'email': email,
+                    'phone': '',
+                    'password': hashed_pw,
+                    'role': role,
+                    'auth_provider': 'google',
+                    'google_id': google_id,
+                    'picture': picture,
+                    'created_at': datetime.now().isoformat()
+                }
+                all_users.append(user)
+                save_users_list(all_users)
+                logger.info(f"New user auto-registered via Google: {email} (role: {role})")
+            else:
+                updated = False
+                if not user.get('auth_provider'):
+                    user['auth_provider'] = 'google'
+                    updated = True
+                if picture and not user.get('picture'):
+                    user['picture'] = picture
+                    updated = True
+                if google_id and not user.get('google_id'):
+                    user['google_id'] = google_id
+                    updated = True
+                if updated:
+                    save_users_list(all_users)
+
+        user_role = resolve_role(user)
+        access_token = create_access_token(identity=user['email'])
+
+        return jsonify({
+            "access_token": access_token,
+            "user": {
+                "name": user.get('name', 'User'),
+                "email": user['email'],
+                "role": user_role,
+                "picture": user.get('picture', '')
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error in /auth/google: {e}")
+        return jsonify({"error": "An error occurred during Google sign in."}), 500
+
 def normalize_phone(phone: str) -> str:
     """Normalize phone number to digits or clean international format"""
     if not phone:

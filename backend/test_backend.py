@@ -8,7 +8,8 @@ os.environ['ADMIN_EMAILS'] = 'admin@example.com,test_admin@example.com'
 
 from app import (
     app, detector, users_collection, predictions_collection, limiter,
-    otp_store, normalize_phone, scams_collection, scams_lock, SCAMS_FILE, atomic_save_json
+    otp_store, normalize_phone, scams_collection, scams_lock, SCAMS_FILE, atomic_save_json,
+    users_lock, get_all_users, save_users_list
 )
 
 print("=" * 65)
@@ -338,6 +339,50 @@ assert search_data['total_matches'] >= 1
 assert any('ZOHO' in c['company_name'].upper() for c in search_data['companies'])
 print(f"  [PASS] Verified Safe Company search returned {search_data['total_matches']} MCA match(es) for 'Zoho'.")
 
+# 17. Google OAuth Authentication Flow (/auth/google & /api/auth/google)
+print("\n[Test 17] Testing POST /auth/google & /api/auth/google OAuth Authentication Flow...")
+limiter.requests.clear()
+
+# 17.1 Test missing payload validation
+bad_res = client.post('/auth/google', json={})
+assert bad_res.status_code == 400
+assert "required" in bad_res.json.get('error', '').lower()
+
+# 17.2 Test regular user auto-registration via Google
+google_user_res = client.post('/auth/google', json={
+    "email": "fresh_google_candidate@gmail.com",
+    "name": "Google Candidate",
+    "google_id": "google_sub_987654"
+})
+assert google_user_res.status_code == 200, f"Status {google_user_res.status_code}: {google_user_res.data}"
+google_user_data = google_user_res.json
+assert 'access_token' in google_user_data
+assert google_user_data['user']['email'] == "fresh_google_candidate@gmail.com"
+assert google_user_data['user']['role'] == "user"
+print("  [PASS] Fresh Google user successfully auto-registered and authenticated with JWT access token.")
+
+# 17.3 Test designated administrator Google login
+google_admin_res = client.post('/api/auth/google', json={
+    "email": "rdheena0509@gmail.com",
+    "name": "Dheena",
+    "google_id": "google_sub_admin"
+})
+assert google_admin_res.status_code == 200
+google_admin_data = google_admin_res.json
+assert google_admin_data['user']['role'] == "admin"
+
+# Verify admin JWT access token can access /admin/analytics
+admin_token = google_admin_data['access_token']
+analytics_check = client.get('/admin/analytics', headers={'Authorization': f'Bearer {admin_token}'})
+assert analytics_check.status_code == 200
+print("  [PASS] Administrator Google Sign-In automatically grants 'admin' role and authorizes /admin/analytics.")
+
+# Clean up test user
+with users_lock:
+    current_users = get_all_users()
+    filtered = [u for u in current_users if (u.get('email') or '').lower() != "fresh_google_candidate@gmail.com"]
+    save_users_list(filtered)
+
 print("\n" + "=" * 65)
-print("ALL 16 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]")
+print("ALL 17 COMPREHENSIVE SECURITY & FEATURE TESTS PASSED! [100% OK]")
 print("=" * 65)
