@@ -164,6 +164,9 @@ export interface JobUrlFetchResponse {
   description: string;
   email?: string;
   website?: string;
+  cin?: string;
+  mca_verified?: boolean;
+  platform?: string;
   status: string;
 }
 

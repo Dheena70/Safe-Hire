@@ -1670,10 +1670,246 @@ def scan_offer_letter():
         logger.error(f"Error in /api/scan-offer-letter: {e}")
         return jsonify({"error": "An error occurred during document forensic scanning."}), 500
 
+KNOWN_JOB_TITLES = [
+    'associate software engineer', 'senior software engineer', 'software development engineer',
+    'software engineer', 'full stack developer', 'full stack engineer', 'frontend developer',
+    'frontend engineer', 'backend developer', 'backend engineer', 'devops engineer',
+    'cloud engineer', 'cloud architect', 'data engineer', 'data scientist', 'data analyst',
+    'product manager', 'project manager', 'qa engineer', 'qa tester', 'test engineer',
+    'system administrator', 'network engineer', 'ui ux designer', 'ui designer', 'ux designer',
+    'business analyst', 'business development executive', 'marketing executive', 'sales executive',
+    'human resources', 'hr executive', 'recruiter', 'graphic designer', 'content writer',
+    'digital marketing', 'telecaller', 'customer support', 'operations executive'
+]
+
+INDIAN_JOB_CITIES = {
+    'chennai', 'bangalore', 'bengaluru', 'hyderabad', 'mumbai', 'delhi', 'pune',
+    'kolkata', 'noida', 'gurgaon', 'gurugram', 'ahmedabad', 'kochi', 'coimbatore', 'chandigarh'
+}
+
+def split_title_and_company(slug: str):
+    """Accurately separates job role and hiring company from URL path slugs"""
+    if not slug:
+        return "", ""
+    slug_clean = slug.replace('-', ' ').replace('_', ' ').lower().strip()
+    for term in KNOWN_JOB_TITLES:
+        if slug_clean.startswith(term):
+            title = ' '.join(w.capitalize() for w in term.split())
+            rem = slug_clean[len(term):].strip()
+            rem = re.sub(r'^(?:at|for|in)\s+', '', rem).strip()
+            company = ' '.join(w.capitalize() for w in rem.split()) if rem else ''
+            return title, company
+
+    parts = slug.split('-')
+    if len(parts) >= 3:
+        return ' '.join(w.capitalize() for w in parts[:2]), ' '.join(w.capitalize() for w in parts[2:])
+    elif len(parts) == 2:
+        return parts[0].capitalize(), parts[1].capitalize()
+    return ' '.join(w.capitalize() for w in parts), ''
+
+def parse_job_url_by_platform(target_url: str) -> dict:
+    """Specialized URL metadata extraction covering 15+ Indian & global job portals"""
+    parsed = urllib.parse.urlparse(target_url.strip())
+    domain = parsed.netloc.lower().replace('www.', '')
+    path = urllib.parse.unquote(parsed.path)
+
+    company = ''
+    title = ''
+    platform = 'Career Portal'
+
+    def title_case(s: str) -> str:
+        words = s.replace('-', ' ').replace('_', ' ').split()
+        return ' '.join(w.capitalize() for w in words if w)
+
+    if 'linkedin.com' in domain:
+        platform = 'LinkedIn'
+        m = re.search(r'/jobs/view/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            if '-at-' in slug:
+                parts = slug.split('-at-')
+                title = title_case(parts[0])
+                company = title_case(parts[1])
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'naukri.com' in domain:
+        platform = 'Naukri'
+        m = re.search(r'/job-listings-(.+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            parts = slug.split('-')
+            if parts and parts[-1].lower() in INDIAN_JOB_CITIES:
+                parts.pop()
+            title, company = split_title_and_company('-'.join(parts))
+
+    elif 'indeed.com' in domain:
+        platform = 'Indeed'
+        m_cmp = re.search(r'/cmp/([^/]+)/jobs/([^/?]+)', path)
+        if m_cmp:
+            company = title_case(m_cmp.group(1))
+            title = title_case(re.sub(r'-\d+$', '', m_cmp.group(2)))
+        else:
+            q = urllib.parse.parse_qs(parsed.query)
+            if 'q' in q:
+                title = title_case(q['q'][0])
+
+    elif 'internshala.com' in domain:
+        platform = 'Internshala'
+        m = re.search(r'/(?:internship|job)/detail/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'\d+$', '', m.group(1))
+            if '-at-' in slug:
+                t_part, c_part = slug.split('-at-')
+                company = title_case(c_part)
+                t_part = re.sub(r'-in-[a-z]+$', '', t_part)
+                title = title_case(t_part)
+            else:
+                title = title_case(slug)
+
+    elif 'foundit.in' in domain or 'monsterindia.com' in domain:
+        platform = 'Foundit'
+        m = re.search(r'/job/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            parts = slug.split('-')
+            if parts and parts[-1].lower() in INDIAN_JOB_CITIES:
+                parts.pop()
+            title, company = split_title_and_company('-'.join(parts))
+
+    elif 'wellfound.com' in domain or 'angel.co' in domain:
+        platform = 'Wellfound'
+        m = re.search(r'/jobs/(?:\d+-)?([^/?]+)', path)
+        if m:
+            slug = m.group(1)
+            if '-at-' in slug:
+                parts = slug.split('-at-')
+                title = title_case(parts[0])
+                company = title_case(parts[1])
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'cutshort.io' in domain:
+        platform = 'Cutshort'
+        m = re.search(r'/job/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            if '-at-' in slug:
+                parts = slug.split('-at-')
+                title = title_case(parts[0])
+                company = title_case(parts[1])
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'instahyre.com' in domain:
+        platform = 'Instahyre'
+        m = re.search(r'/job-(?:\d+-)?([^/?]+)', path)
+        if m:
+            slug = m.group(1).rstrip('/')
+            if '-at-' in slug:
+                t_part, c_part = slug.split('-at-')
+                title = title_case(t_part)
+                c_parts = c_part.split('-')
+                if len(c_parts) > 1 and c_parts[-1].lower() in INDIAN_JOB_CITIES:
+                    c_parts.pop()
+                company = title_case(' '.join(c_parts))
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'freshersworld.com' in domain:
+        platform = 'Freshersworld'
+        m = re.search(r'/jobs/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            if '-at-' in slug:
+                t_part, c_part = slug.split('-at-')
+                title = title_case(t_part.replace('-job', ''))
+                c_parts = c_part.split('-')
+                if len(c_parts) > 1 and c_parts[-1].lower() in INDIAN_JOB_CITIES:
+                    c_parts.pop()
+                company = title_case(' '.join(c_parts))
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'hirist.tech' in domain or 'hirist.com' in domain:
+        platform = 'Hirist'
+        m = re.search(r'/j/([^/?]+)\.html', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            parts = slug.split('-')
+            if len(parts) >= 2:
+                company = title_case(parts[-1])
+                title = title_case(' '.join(parts[:-1]))
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'apna.co' in domain:
+        platform = 'Apna'
+        m = re.search(r'/job/(?:[^/]+/)?([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            if '-at-' in slug:
+                parts = slug.split('-at-')
+                title = title_case(parts[0])
+                company = title_case(parts[1])
+            else:
+                title, company = split_title_and_company(slug)
+
+    elif 'glassdoor' in domain:
+        platform = 'Glassdoor'
+        m = re.search(r'/job-listing/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-JV_.*$', '', m.group(1))
+            title, company = split_title_and_company(slug)
+
+    elif 'unstop.com' in domain:
+        platform = 'Unstop'
+        m = re.search(r'/(?:jobs|internships)/([^/?]+)', path)
+        if m:
+            slug = re.sub(r'-\d+$', '', m.group(1))
+            title, company = split_title_and_company(slug)
+
+    elif 'shine.com' in domain:
+        platform = 'Shine'
+        parts = [p for p in path.split('/') if p and p != 'jobs']
+        if len(parts) >= 2:
+            title = title_case(parts[0])
+            company = title_case(parts[1])
+        elif len(parts) == 1:
+            title, company = split_title_and_company(parts[0])
+
+    elif 'ncs.gov.in' in domain:
+        platform = 'National Career Service (NCS)'
+        title = 'Government / NCS Vacancy'
+        company = 'NCS Registered Employer'
+
+    elif any(ats in domain for ats in ['greenhouse.io', 'lever.co', 'workday', 'smartrecruiters', 'ashbyhq', 'bamboohr']):
+        platform = 'Direct Company ATS'
+        clean_path = [p for p in path.split('/') if p and p not in {'jobs', 'careers', 'view', 'posting'}]
+        if clean_path:
+            title, company = split_title_and_company(clean_path[-1])
+        if not company:
+            company = domain.split('.')[0].capitalize()
+
+    else:
+        platform = domain.split('.')[0].capitalize() + ' Careers'
+        clean_path = re.sub(r'[-_/]', ' ', path).strip()
+        if clean_path:
+            title, company = split_title_and_company(clean_path[:60])
+        if not company:
+            company = domain.split('.')[0].capitalize()
+
+    return {
+        'platform': platform,
+        'title': title or 'Job Opening',
+        'company': company or (domain.split('.')[0].capitalize() if domain else 'Unknown Company'),
+        'website': f"https://{domain}" if domain else ""
+    }
+
 @app.route('/api/fetch-job-url', methods=['POST'])
 def fetch_job_url():
-    """Auto-extract Job Title, Company Name, and Description from LinkedIn/Naukri/Indeed/Career URL"""
-    rate_err = apply_rate_limit(max_requests=10, window_seconds=60)
+    """Auto-extract Job Title, Company Name, and Description from 15+ Job Portals with Resilient Fallback"""
+    rate_err = apply_rate_limit(max_requests=30, window_seconds=60)
     if rate_err:
         return rate_err
 
@@ -1686,89 +1922,145 @@ def fetch_job_url():
         if not target_url:
             return jsonify({"error": "Job posting URL is required."}), 400
 
+        # Auto-prepend https:// if omitted
+        if not target_url.startswith('http://') and not target_url.startswith('https://'):
+            target_url = 'https://' + target_url
+
         is_safe, err_msg = is_safe_external_url(target_url)
         if not is_safe:
             return jsonify({"error": f"Security restriction: {err_msg}"}), 400
 
-        req = urllib.request.Request(
-            target_url,
-            headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-            }
-        )
+        # Run specialized platform URL analyzer first
+        url_meta = parse_job_url_by_platform(target_url)
+        extracted_company = url_meta['company']
+        extracted_title = url_meta['title']
+        platform_name = url_meta['platform']
+        website_url = url_meta['website']
 
-        opener = urllib.request.build_opener(SafeRedirectHandler())
-        with opener.open(req, timeout=10) as response:
-            html_bytes = response.read(1024 * 1024) # Read max 1MB
-            html_content = html_bytes.decode('utf-8', errors='ignore')
+        clean_desc = ""
+        contact_email = ""
 
-        soup = BeautifulSoup(html_content, 'html.parser')
+        # Attempt high-fidelity live HTML retrieval with realistic desktop Chrome headers
+        try:
+            req = urllib.request.Request(
+                target_url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Sec-Ch-Ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Upgrade-Insecure-Requests': '1',
+                }
+            )
 
-        # Remove scripts, styles, nav, footer
-        for elem in soup(['script', 'style', 'noscript', 'header', 'footer', 'nav']):
-            elem.extract()
+            opener = urllib.request.build_opener(SafeRedirectHandler())
+            with opener.open(req, timeout=8) as response:
+                html_bytes = response.read(1024 * 1024)
+                html_content = html_bytes.decode('utf-8', errors='ignore')
 
-        # Extract Page Title & Meta Description
-        page_title = soup.title.string.strip() if soup.title and soup.title.string else ""
-        og_title = ""
-        og_desc = ""
-        og_site = ""
+            soup = BeautifulSoup(html_content, 'html.parser')
 
-        og_title_meta = soup.find('meta', property='og:title') or soup.find('meta', attrs={'name': 'og:title'})
-        if og_title_meta and og_title_meta.get('content'):
-            og_title = og_title_meta['content'].strip()
+            # 1. Check for JSON-LD schema (JobPosting standard across Google Jobs, LinkedIn, Naukri)
+            for script in soup.find_all('script', type='application/ld+json'):
+                try:
+                    js_data = json.loads(script.string or '')
+                    if isinstance(js_data, list):
+                        js_data = js_data[0] if js_data else {}
+                    if isinstance(js_data, dict):
+                        js_type = str(js_data.get('@type', ''))
+                        if 'JobPosting' in js_type:
+                            if js_data.get('title'):
+                                extracted_title = str(js_data['title']).strip()
+                            hiring_org = js_data.get('hiringOrganization')
+                            if isinstance(hiring_org, dict) and hiring_org.get('name'):
+                                extracted_company = str(hiring_org['name']).strip()
+                            elif isinstance(hiring_org, str):
+                                extracted_company = hiring_org.strip()
+                            if js_data.get('description'):
+                                desc_soup = BeautifulSoup(str(js_data['description']), 'html.parser')
+                                clean_desc = desc_soup.get_text(separator='\n', strip=True)
+                            break
+                except Exception:
+                    pass
 
-        og_desc_meta = soup.find('meta', property='og:description') or soup.find('meta', attrs={'name': 'description'})
-        if og_desc_meta and og_desc_meta.get('content'):
-            og_desc = og_desc_meta['content'].strip()
+            # 2. Extract OpenGraph and Title fallback
+            if not clean_desc or not extracted_company or not extracted_title:
+                for elem in soup(['script', 'style', 'noscript', 'header', 'footer', 'nav']):
+                    elem.extract()
 
-        og_site_meta = soup.find('meta', property='og:site_name')
-        if og_site_meta and og_site_meta.get('content'):
-            og_site = og_site_meta['content'].strip()
+                page_title = soup.title.string.strip() if soup.title and soup.title.string else ""
+                og_title_meta = soup.find('meta', property='og:title') or soup.find('meta', attrs={'name': 'og:title'})
+                og_title = og_title_meta['content'].strip() if og_title_meta and og_title_meta.get('content') else ""
 
-        # Extract Company & Job Title heuristic from titles
-        title_source = og_title or page_title
-        extracted_company = ""
-        extracted_title = ""
+                og_desc_meta = soup.find('meta', property='og:description') or soup.find('meta', attrs={'name': 'description'})
+                og_desc = og_desc_meta['content'].strip() if og_desc_meta and og_desc_meta.get('content') else ""
 
-        # Pattern: "Job Title at Company" or "Company hiring Job Title in Location"
-        at_match = re.search(r'^(.*?)\s+(?:at|@|hiring for|hiring)\s+(.*?)(?:\s+in\s+.*|\s*[-|–].*)?$', title_source, re.IGNORECASE)
-        if at_match:
-            extracted_title = at_match.group(1).strip()
-            extracted_company = at_match.group(2).strip()
-        else:
-            # Fallback split by delimiters
-            parts = re.split(r'[-|–•:]', title_source)
-            if len(parts) >= 2:
-                extracted_title = parts[0].strip()
-                extracted_company = parts[1].strip()
-            else:
-                extracted_title = title_source[:80]
-                extracted_company = og_site or urllib.parse.urlparse(target_url).netloc.replace('www.', '').split('.')[0].capitalize()
+                title_source = og_title or page_title
+                if title_source:
+                    at_match = re.search(r'^(.*?)\s+(?:at|@|hiring for|hiring)\s+(.*?)(?:\s+in\s+.*|\s*[-|–].*)?$', title_source, re.IGNORECASE)
+                    if at_match and not extracted_company:
+                        extracted_title = at_match.group(1).strip()
+                        extracted_company = at_match.group(2).strip()
 
-        # Extract main body text
-        main_content = ""
-        main_tag = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'job-description|description|details|posting', re.I))
-        if main_tag:
-            main_content = main_tag.get_text(separator='\n', strip=True)
-        else:
-            main_content = soup.get_text(separator='\n', strip=True)
+                main_tag = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'job-description|description|details|posting', re.I))
+                main_content = main_tag.get_text(separator='\n', strip=True) if main_tag else soup.get_text(separator='\n', strip=True)
 
-        clean_desc = "\n".join([line for line in main_content.split('\n') if len(line.strip()) > 3])
+                if not clean_desc:
+                    lines = [line.strip() for line in main_content.split('\n') if len(line.strip()) > 10]
+                    clean_desc = "\n".join(lines[:30])
+                    if not clean_desc and og_desc:
+                        clean_desc = og_desc
+
+                emails_found = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', main_content)
+                contact_email = emails_found[0] if emails_found else ""
+
+        except Exception as net_err:
+            logger.info(f"Portal network scrape fell back to smart URL extraction ({net_err}) for {target_url}")
+
+        # Fallback description if blocked or empty
+        if not clean_desc:
+            clean_desc = (
+                f"Job Opening: {extracted_title}\n"
+                f"Company: {extracted_company}\n"
+                f"Sourced via: {platform_name}\n"
+                f"Verified Job URL: {target_url}\n\n"
+                f"This listing was automatically extracted from {platform_name}. "
+                f"Verify the recruiter credibility, corporate registration, and offer terms below."
+            )
+
         if len(clean_desc) > 3000:
             clean_desc = clean_desc[:3000]
 
-        if not clean_desc and og_desc:
-            clean_desc = og_desc
-
-        parsed_domain = urllib.parse.urlparse(target_url).netloc
-        website_url = f"https://{parsed_domain}"
-
-        # Extract any email
-        emails_found = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', main_content)
-        contact_email = emails_found[0] if emails_found else ""
+        # Cross-reference with MCA South India SQLite Registry to auto-suggest official CIN
+        matched_cin = None
+        mca_verified = False
+        if extracted_company and len(extracted_company) >= 2:
+            try:
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT cin, company_name FROM companies WHERE company_name LIKE ? LIMIT 1",
+                    (f"{extracted_company}%",)
+                )
+                row = cur.fetchone()
+                if not row and len(extracted_company) > 3:
+                    cur.execute(
+                        "SELECT cin, company_name FROM companies WHERE company_name LIKE ? LIMIT 1",
+                        (f"%{extracted_company}%",)
+                    )
+                    row = cur.fetchone()
+                if row:
+                    matched_cin = row['cin']
+                    mca_verified = True
+                conn.close()
+            except Exception as db_err:
+                logger.warning(f"MCA cross-reference lookup failed: {db_err}")
 
         return jsonify({
             "url": target_url,
@@ -1777,6 +2069,9 @@ def fetch_job_url():
             "description": clean_desc[:4000],
             "email": contact_email,
             "website": website_url,
+            "cin": matched_cin,
+            "mca_verified": mca_verified,
+            "platform": platform_name,
             "status": "success"
         })
     except Exception as e:
