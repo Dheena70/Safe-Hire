@@ -3,7 +3,6 @@ import { AuthResponse, getMe, getVisitorCount } from './services/api';
 import AuthForm from './components/AuthForm';
 import VerificationForm from './components/VerificationForm';
 import { OfferLetterScanner } from './components/OfferLetterScanner';
-import { ResumeScorer } from './components/ResumeScorer';
 import { SafeCompanyExplorer } from './components/SafeCompanyExplorer';
 import { CommunityScamBoard } from './components/CommunityScamBoard';
 import AdminDashboard from './components/AdminDashboard';
