@@ -269,9 +269,15 @@ function App() {
           ) : showAdmin && isAdmin ? (
             <AdminDashboard token={user.access_token} />
           ) : activeTab === 'offer-scan' ? (
-            <OfferLetterScanner onSwitchToResume={() => setActiveTab('resume-score')} />
+            <OfferLetterScanner
+              initialDocumentType="offer-letter"
+              onSwitchToResume={() => setActiveTab('resume-score')}
+            />
           ) : activeTab === 'resume-score' ? (
-            <ResumeScorer onSwitchToOfferScan={() => setActiveTab('offer-scan')} />
+            <OfferLetterScanner
+              initialDocumentType="resume-score"
+              onSwitchToResume={() => setActiveTab('resume-score')}
+            />
           ) : activeTab === 'safe-companies' ? (
             <SafeCompanyExplorer
               onSelectCompany={(compName, cin) => {

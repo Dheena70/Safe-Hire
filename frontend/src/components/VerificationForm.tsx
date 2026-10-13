@@ -38,12 +38,6 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ initialData }) => {
 
   const MAX_DESCRIPTION_LENGTH = 2000;
 
-  const SUPPORTED_JOB_PORTALS = [
-    'Naukri.com', 'LinkedIn', 'Indeed', 'Internshala', 'Foundit',
-    'Wellfound', 'Cutshort', 'Instahyre', 'Freshersworld', 'Hirist',
-    'Apna', 'NCS (Govt)', 'Glassdoor', 'Unstop', 'Shine.com', 'Company Careers'
-  ];
-
   // Preset Sample Scenarios for 1-Click Testing
   const SAMPLE_PRESETS = {
     realCin: {
@@ -325,7 +319,7 @@ contracts with official registered corporate sources.
                   const match = val.match(/https?:\/\/[^\s]+/i);
                   setJobUrl(match ? match[0] : val);
                 }}
-                placeholder="Paste job link (Naukri, LinkedIn, Indeed, Internshala, Foundit, Wellfound, Cutshort, Instahyre, Freshersworld, Hirist, Apna, NCS, Glassdoor, Unstop, Shine...)"
+                placeholder="Paste job link (e.g., LinkedIn, Naukri, Indeed, Internshala, or company career page)"
                 autoComplete="off"
                 spellCheck={false}
                 className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 font-mono pr-8"
@@ -365,24 +359,6 @@ contracts with official registered corporate sources.
               )}
             </button>
           </form>
-
-          {/* Supported Portals Pill Bar */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80">
-            <span className="text-[10px] uppercase font-bold text-slate-400 mr-1 flex items-center gap-1">
-              <svg className="w-3 h-3 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Supported:
-            </span>
-            {SUPPORTED_JOB_PORTALS.map((portal) => (
-              <span
-                key={portal}
-                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-800/70 border border-slate-700/60 text-slate-300"
-              >
-                {portal}
-              </span>
-            ))}
-          </div>
 
           {urlSuccess && (
             <div className="text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl font-medium flex items-center gap-2 animate-fadeIn">

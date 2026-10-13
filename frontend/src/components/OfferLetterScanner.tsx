@@ -1,12 +1,21 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { scanOfferLetter, OfferScanResponse, describeApiError } from '../services/api';
+import { ResumeScorer } from './ResumeScorer';
 
 interface Props {
+  initialDocumentType?: 'offer-letter' | 'resume-score';
   onSwitchToResume?: () => void;
 }
 
-export const OfferLetterScanner: React.FC<Props> = ({ onSwitchToResume }) => {
+export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'offer-letter', onSwitchToResume }) => {
+  const [docType, setDocType] = useState<'offer-letter' | 'resume-score'>(initialDocumentType);
   const [activeMode, setActiveMode] = useState<'upload' | 'paste'>('upload');
+
+  useEffect(() => {
+    if (initialDocumentType) {
+      setDocType(initialDocumentType);
+    }
+  }, [initialDocumentType]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -79,8 +88,75 @@ export const OfferLetterScanner: React.FC<Props> = ({ onSwitchToResume }) => {
     }
   };
 
+  if (docType === 'resume-score') {
+    return (
+      <div className="w-full max-w-4xl mx-auto space-y-6 animate-fadeIn">
+        {/* Top Segmented Mode Switcher */}
+        <div className="flex p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl gap-2 shadow-xl backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => setDocType('offer-letter')}
+            className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+          >
+            <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <span>Verify Offer Letter</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDocType('resume-score')}
+            className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/25"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <span>Score Resume / CV</span>
+          </button>
+        </div>
+
+        <ResumeScorer onSwitchToOfferScan={() => setDocType('offer-letter')} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
+      {/* Top Segmented Mode Switcher */}
+      <div className="flex p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl gap-2 shadow-xl backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={() => setDocType('offer-letter')}
+          className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>Verify Offer Letter</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (onSwitchToResume) onSwitchToResume();
+            setDocType('resume-score');
+          }}
+          className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+        >
+          <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <span>Score Resume / CV</span>
+        </button>
+      </div>
+
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 border border-slate-800 p-6 sm:p-8 shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
