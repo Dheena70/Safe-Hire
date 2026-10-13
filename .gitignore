@@ -44,3 +44,4 @@ visitors.json
 # OS
 Thumbs.db
 .DS_Store
+*.zip

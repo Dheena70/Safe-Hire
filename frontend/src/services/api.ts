@@ -137,10 +137,11 @@ export interface AnalyticsData {
 }
 
 export interface OfferScanResponse {
-  verdict: 'GENUINE' | 'SUSPICIOUS' | 'HIGH_RISK_FRAUD';
+  verdict: 'GENUINE' | 'SUSPICIOUS' | 'HIGH_RISK_FRAUD' | 'SCANNED_DOCUMENT_REVIEW';
   status_label: string;
   legitimacy_score: number; // 0 - 100
   risk_score: number;
+  is_scanned_image?: boolean;
   extracted_details: {
     company_name: string;
     job_title: string;
@@ -148,11 +149,44 @@ export interface OfferScanResponse {
     cin: string;
     salary: string;
     char_count: number;
+    file_size_kb?: number;
+    page_count?: number;
+    producer?: string;
   };
   red_flags: string[];
   green_flags: string[];
   recommendations: string[];
   raw_text_preview?: string;
+  filename?: string;
+  scanned_at?: string;
+}
+
+export interface ResumeScoreResponse {
+  overall_score: number;
+  grade: string;
+  word_count: number;
+  metrics_count: number;
+  action_verbs_count: number;
+  section_scores: {
+    sections_coverage: number;
+    action_verbs: number;
+    quantifiable_impact: number;
+    technical_keywords: number;
+    length_formatting: number;
+  };
+  sections_found: string[];
+  sections_missing: string[];
+  skills: string[];
+  privacy_score: number;
+  privacy_alerts: string[];
+  strengths: string[];
+  improvements: string[];
+  candidate: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  target_role?: string;
   filename?: string;
   scanned_at?: string;
 }
@@ -213,6 +247,21 @@ export const scanOfferLetter = async (input: File | string): Promise<OfferScanRe
     const formData = new FormData();
     formData.append('file', input);
     const response = await api.post('/api/scan-offer-letter', formData);
+    return response.data;
+  }
+};
+
+export const scoreResume = async (input: File | string, targetRole: string = ''): Promise<ResumeScoreResponse> => {
+  if (typeof input === 'string') {
+    const response = await api.post('/api/score-resume', { text: input, target_role: targetRole });
+    return response.data;
+  } else {
+    const formData = new FormData();
+    formData.append('file', input);
+    if (targetRole) {
+      formData.append('target_role', targetRole);
+    }
+    const response = await api.post('/api/score-resume', formData);
     return response.data;
   }
 };

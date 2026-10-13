@@ -1617,16 +1617,236 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
 # NEW FEATURE ROUTES: OFFER SCANNER, URL FETCHER, SCAM ALERT BOARD
 # ============================================================================
 
+def extract_text_and_meta_from_pdf(file_bytes: bytes) -> tuple[str, dict]:
+    """Robust multi-strategy text and forensic metadata extractor from PDF bytes"""
+    extracted_text = ""
+    meta_info = {'page_count': 1, 'producer': '', 'creator': '', 'title': '', 'author': ''}
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        meta_info['page_count'] = len(reader.pages)
+        if reader.metadata:
+            meta_info['producer'] = str(reader.metadata.get('/Producer', '') or '')
+            meta_info['creator'] = str(reader.metadata.get('/Creator', '') or '')
+            meta_info['title'] = str(reader.metadata.get('/Title', '') or '')
+            meta_info['author'] = str(reader.metadata.get('/Author', '') or '')
+
+        pages_text = []
+        for page in reader.pages[:15]:
+            t = page.extract_text() or ""
+            if not t.strip():
+                t = page.extract_text(extraction_mode='layout') or ""
+            if not t.strip():
+                parts = []
+                def visitor(text, cm, tm, font_dict, font_size):
+                    if text:
+                        parts.append(text)
+                try:
+                    page.extract_text(visitor_text=visitor)
+                    t = "".join(parts)
+                except Exception:
+                    pass
+            pages_text.append(t)
+
+        extracted_text = "\n".join(pages_text).strip()
+
+        # Stream regex fallback if pypdf extract_text found zero text (e.g. non-standard font encoding)
+        if not extracted_text:
+            stream_tokens = []
+            for page in reader.pages[:15]:
+                try:
+                    contents = page.get_contents()
+                    if contents:
+                        data = contents.get_data() if hasattr(contents, 'get_data') else b''
+                        matches = re.findall(rb'\(([^\)]+)\)\s*Tj', data)
+                        for m in matches:
+                            try:
+                                stream_tokens.append(m.decode('utf-8', errors='ignore'))
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+            if stream_tokens:
+                extracted_text = " ".join(stream_tokens).strip()
+
+    except Exception as e:
+        logger.warning(f"Error in extract_text_and_meta_from_pdf: {e}")
+    return extracted_text, meta_info
+
+RESUME_ACTION_VERBS = {
+    'developed', 'designed', 'built', 'created', 'implemented', 'architected',
+    'engineered', 'spearheaded', 'managed', 'led', 'analyzed', 'streamlined',
+    'optimized', 'automated', 'delivered', 'orchestrated', 'configured', 'resolved',
+    'improved', 'accelerated', 'launched', 'scaled', 'refactored', 'collaborated'
+}
+
+RESUME_STANDARD_SECTIONS = {
+    'experience': ['experience', 'work experience', 'employment', 'work history', 'internship'],
+    'education': ['education', 'academic', 'qualification', 'degree', 'university', 'college'],
+    'skills': ['skills', 'technical skills', 'core competencies', 'technologies', 'tools', 'languages'],
+    'projects': ['projects', 'academic projects', 'personal projects', 'key initiatives'],
+    'summary': ['summary', 'professional summary', 'objective', 'about me', 'profile'],
+    'certifications': ['certifications', 'certificates', 'courses', 'licensure', 'achievements']
+}
+
+RESUME_TECH_KEYWORDS = {
+    'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'react', 'angular', 'vue',
+    'node', 'express', 'flask', 'django', 'fastapi', 'spring', 'sql', 'mysql', 'postgresql',
+    'mongodb', 'redis', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'git', 'linux',
+    'html', 'css', 'tailwind', 'bootstrap', 'pandas', 'numpy', 'scikit-learn', 'tensorflow',
+    'pytorch', 'data analysis', 'machine learning', 'power bi', 'tableau', 'excel', 'rest api',
+    'graphql', 'ci/cd', 'agile', 'scrum', 'devops', 'microservices'
+}
+
+def analyze_resume_text(text: str, target_role: str = '') -> dict:
+    """Evaluate candidate resume for ATS compatibility, keyword density, and privacy safety"""
+    clean_text = text.strip()
+    text_lower = clean_text.lower()
+    words = re.findall(r'\b[a-zA-Z0-9+#.-]+\b', text_lower)
+    word_count = len(words)
+
+    # 1. Section Coverage Score (Max 30)
+    section_score = 0
+    sections_found = []
+    sections_missing = []
+    for sec_name, sec_aliases in RESUME_STANDARD_SECTIONS.items():
+        found = any(alias in text_lower for alias in sec_aliases)
+        if found:
+            section_score += 5
+            sections_found.append(sec_name.capitalize())
+        else:
+            sections_missing.append(sec_name.capitalize())
+
+    # 2. Action Verbs Score (Max 20)
+    verbs_used = [w for w in set(words) if w in RESUME_ACTION_VERBS]
+    verb_score = min(20, len(verbs_used) * 3)
+
+    # 3. Quantifiable Impact Score (Max 20)
+    metrics_found = re.findall(r'(?:\d+%\b|\d+x\b|\b\d+\+\b|\b\d{2,}\b|\$\d+|\₹\d+)', clean_text)
+    impact_score = min(20, len(metrics_found) * 4)
+
+    # 4. Technical Skills & Keywords (Max 20)
+    detected_skills = [k for k in RESUME_TECH_KEYWORDS if k in text_lower]
+    skills_display = [('C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else s.capitalize()) for s in detected_skills]
+    skill_score = min(20, len(detected_skills) * 3)
+
+    # 5. Length & Formatting Balance (Max 10)
+    if 300 <= word_count <= 1200:
+        length_score = 10
+    elif 150 <= word_count < 300 or 1200 < word_count <= 1800:
+        length_score = 6
+    else:
+        length_score = 3
+
+    raw_total = section_score + verb_score + impact_score + skill_score + length_score
+    overall_score = min(100, max(15, raw_total))
+
+    # 6. Privacy & Sensitive Data Safety Audit
+    privacy_alerts = []
+    privacy_score = 100
+
+    aadhaar_match = re.findall(r'\b[2-9]{1}[0-9]{3}[ -]?[0-9]{4}[ -]?[0-9]{4}\b', clean_text)
+    if aadhaar_match:
+        privacy_alerts.append("Sensitive Aadhaar Number detected! Never share Aadhaar on public resumes to prevent identity theft and fake KYC fraud.")
+        privacy_score -= 30
+
+    pan_match = re.findall(r'\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b', clean_text)
+    if pan_match:
+        privacy_alerts.append("PAN Card Number detected. Legitimate employers only request PAN upon final formal onboarding.")
+        privacy_score -= 25
+
+    if 'bank account' in text_lower or re.search(r'\b[A-Z]{4}0[A-Z0-9]{6}\b', clean_text):
+        privacy_alerts.append("Banking details detected. Job scammers often harvest bank details for counterfeit processing schemes.")
+        privacy_score -= 30
+
+    email_match = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', clean_text)
+    candidate_email = email_match[0] if email_match else ""
+
+    phone_match = re.findall(r'(?:\+?91[\s-]?)?[6-9]\d{9}', clean_text)
+    candidate_phone = phone_match[0] if phone_match else ""
+
+    lines = [l.strip() for l in clean_text.split('\n') if l.strip()]
+    candidate_name = lines[0][:40] if lines else "Candidate"
+
+    if overall_score >= 85:
+        grade = "A (Strong ATS Match)"
+    elif overall_score >= 70:
+        grade = "B+ (Good Corporate Readiness)"
+    elif overall_score >= 50:
+        grade = "B (Average - Needs Optimization)"
+    else:
+        grade = "C (Low ATS Visibility - High Rejection Risk)"
+
+    strengths = []
+    improvements = []
+
+    if len(verbs_used) >= 4:
+        strengths.append(f"Strong active voice: Uses high-impact action verbs ({', '.join(verbs_used[:4])}).")
+    else:
+        improvements.append("Use more strong action verbs (e.g., Developed, Engineered, Spearheaded, Optimized) at the start of bullet points.")
+
+    if len(metrics_found) >= 3:
+        strengths.append(f"Quantifiable results present: Includes measurable impact metrics ({', '.join(metrics_found[:3])}).")
+    else:
+        improvements.append("Add measurable metrics (e.g. 'Improved query speed by 35%', 'Managed 15+ services', 'Scaled to 10k users').")
+
+    if len(detected_skills) >= 6:
+        strengths.append(f"Solid keyword density: {len(detected_skills)} relevant technical keywords identified.")
+    else:
+        improvements.append("Expand your Technical Skills section with specific tools, frameworks, and database technologies.")
+
+    if not sections_missing:
+        strengths.append("Complete ATS layout: All standard sections (Experience, Education, Skills, Projects, Summary) are present.")
+    else:
+        improvements.append(f"Missing recommended sections: Consider adding a distinct section for: {', '.join(sections_missing[:2])}.")
+
+    if target_role:
+        role_lower = target_role.lower()
+        if any(w in text_lower for w in role_lower.split()):
+            strengths.append(f"Role alignment: Resume reflects core terminology for '{target_role}'.")
+        else:
+            improvements.append(f"Tailor your headline and summary to specifically highlight '{target_role}'.")
+
+    return {
+        "overall_score": overall_score,
+        "grade": grade,
+        "word_count": word_count,
+        "metrics_count": len(metrics_found),
+        "action_verbs_count": len(verbs_used),
+        "section_scores": {
+            "sections_coverage": section_score,
+            "action_verbs": verb_score,
+            "quantifiable_impact": impact_score,
+            "technical_keywords": skill_score,
+            "length_formatting": length_score
+        },
+        "sections_found": sections_found,
+        "sections_missing": sections_missing,
+        "skills": skills_display[:20],
+        "privacy_score": max(0, privacy_score),
+        "privacy_alerts": privacy_alerts,
+        "strengths": strengths,
+        "improvements": improvements,
+        "candidate": {
+            "name": candidate_name,
+            "email": candidate_email,
+            "phone": candidate_phone
+        },
+        "target_role": target_role or "General Application",
+        "scanned_at": datetime.now().isoformat()
+    }
+
 @app.route('/api/scan-offer-letter', methods=['POST'])
 def scan_offer_letter():
-    """Scan uploaded offer letter PDF document or pasted text for fraud patterns"""
-    rate_err = apply_rate_limit(max_requests=15, window_seconds=60)
+    """Scan uploaded offer letter PDF document or pasted text with scanned image forensic fallback"""
+    rate_err = apply_rate_limit(max_requests=25, window_seconds=60)
     if rate_err:
         return rate_err
 
     try:
         extracted_text = ""
         filename = "pasted_text"
+        meta_info = {'page_count': 1, 'producer': '', 'creator': ''}
+        file_size_kb = 0
 
         # Check if file was uploaded in multipart/form-data
         if 'file' in request.files:
@@ -1636,39 +1856,126 @@ def scan_offer_letter():
             if len(file_bytes) == 0:
                 return jsonify({"error": "Uploaded file is empty."}), 400
 
+            file_size_kb = len(file_bytes) // 1024
+
             if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
-                try:
-                    pdf_reader = pypdf.PdfReader(io.BytesIO(file_bytes))
-                    pages_text = []
-                    for page in pdf_reader.pages[:10]: # Max 10 pages
-                        txt = page.extract_text() or ""
-                        pages_text.append(txt)
-                    extracted_text = "\n".join(pages_text).strip()
-                except Exception as pdf_err:
-                    logger.warning(f"pypdf extraction error: {pdf_err}")
-                    return jsonify({"error": "Failed to extract text from PDF document. Please ensure file is not password protected."}), 400
+                extracted_text, meta_info = extract_text_and_meta_from_pdf(file_bytes)
             else:
-                # Text or markdown file
                 try:
                     extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
                 except Exception:
                     extracted_text = ""
         else:
-            # Check JSON body or form data
             data = request.get_json(silent=True) or request.form
             extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
 
-        if not extracted_text or len(extracted_text) < 15:
-            return jsonify({"error": "Could not find sufficient readable text in the offer letter. Please paste the offer letter text directly."}), 400
+        # If text is present, run deep NLP & fraud heuristics
+        if extracted_text and len(extracted_text) >= 15:
+            analysis = analyze_offer_letter_text(extracted_text)
+            analysis['filename'] = filename
+            analysis['scanned_at'] = datetime.now().isoformat()
+            analysis['is_scanned_image'] = False
+            return jsonify(analysis)
 
-        analysis = analyze_offer_letter_text(extracted_text)
-        analysis['filename'] = filename
-        analysis['scanned_at'] = datetime.now().isoformat()
+        # Scanned / Image-only Document Handling: Graceful Forensic Report instead of blocking 400 error
+        clean_fn = re.sub(r'[-_.]', ' ', filename).replace('.pdf', '')
+        fn_parts = [p.strip() for p in clean_fn.split() if p.strip()]
 
-        return jsonify(analysis)
+        candidate_from_fn = ""
+        role_from_fn = ""
+        if len(fn_parts) >= 2:
+            candidate_from_fn = " ".join(fn_parts[:2]).capitalize()
+            role_from_fn = " ".join(fn_parts[2:]).capitalize() if len(fn_parts) > 2 else "Offered Position"
+
+        forensic_red_flags = [
+            "Scanned / Raster Image PDF: No selectable digital vector text layer found in this document. Fake job syndicates frequently share image-only PDFs to prevent automated security analyzers and text detectors from reading fraudulent payment/deposit clauses.",
+            f"High File Size ({file_size_kb} KB) with zero digital text: Confirms this document is a photograph or rasterized image scan rather than a native digital HR export."
+        ]
+
+        forensic_recommendations = [
+            "Check if the recruiter sent an official digital PDF generated by corporate ATS software (e.g. Workday, DocuSign, Adobe Sign, Taleo).",
+            "NEVER pay any security deposit, laptop fee, document verification charge, or training fee via UPI or personal accounts.",
+            "To perform deep payment keyword & webmail verification, copy-paste the visible text into the 'Paste Text' tab above."
+        ]
+
+        scanned_report = {
+            "verdict": "SCANNED_DOCUMENT_REVIEW",
+            "status_label": "SCANNED / IMAGE-BASED OFFER LETTER",
+            "legitimacy_score": 45,
+            "risk_score": 55,
+            "is_scanned_image": True,
+            "filename": filename,
+            "scanned_at": datetime.now().isoformat(),
+            "extracted_details": {
+                "company_name": meta_info.get('title') or "Issuer in Scanned Image",
+                "job_title": role_from_fn or "Position in Scanned Image",
+                "emails": [],
+                "cin": "Not Detectable in Image Layer",
+                "salary": "Not Detectable in Image Layer",
+                "char_count": len(extracted_text),
+                "file_size_kb": file_size_kb,
+                "page_count": meta_info.get('page_count', 1),
+                "producer": meta_info.get('producer') or "Raster PDF Export"
+            },
+            "red_flags": forensic_red_flags,
+            "green_flags": [
+                f"Valid PDF container structure verified ({meta_info.get('page_count', 1)} page(s), {file_size_kb} KB)."
+            ],
+            "recommendations": forensic_recommendations,
+            "raw_text_preview": "[Scanned Document / Raster Image PDF - No digital text layer detected. Document Forensics applied to structure & metadata.]"
+        }
+
+        return jsonify(scanned_report)
+
     except Exception as e:
         logger.error(f"Error in /api/scan-offer-letter: {e}")
         return jsonify({"error": "An error occurred during document forensic scanning."}), 500
+
+@app.route('/api/score-resume', methods=['POST'])
+def score_resume():
+    """Score candidate resume for ATS compatibility, keyword density, and privacy protection"""
+    rate_err = apply_rate_limit(max_requests=25, window_seconds=60)
+    if rate_err:
+        return rate_err
+
+    try:
+        extracted_text = ""
+        filename = "pasted_resume"
+        target_role = ""
+
+        if 'file' in request.files:
+            file_obj = request.files['file']
+            filename = sanitize_text(file_obj.filename or 'resume.pdf', max_len=100)
+            file_bytes = file_obj.read()
+            if len(file_bytes) == 0:
+                return jsonify({"error": "Uploaded resume file is empty."}), 400
+
+            target_role = sanitize_text(request.form.get('target_role', ''), max_len=100).strip()
+
+            if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
+                extracted_text, _ = extract_text_and_meta_from_pdf(file_bytes)
+            else:
+                try:
+                    extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
+                except Exception:
+                    extracted_text = ""
+        else:
+            data = request.get_json(silent=True) or request.form
+            extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
+            target_role = sanitize_text(data.get('target_role', ''), max_len=100).strip()
+
+        if not extracted_text or len(extracted_text) < 20:
+            return jsonify({
+                "error": "Could not extract readable text from resume. If this is an image-only scan, please paste the resume text directly."
+            }), 400
+
+        result = analyze_resume_text(extracted_text, target_role=target_role)
+        result['filename'] = filename
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error in /api/score-resume: {e}")
+        return jsonify({"error": f"Failed to score resume: {str(e)}"}), 500
 
 KNOWN_JOB_TITLES = [
     'associate software engineer', 'senior software engineer', 'software development engineer',

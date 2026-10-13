@@ -1,7 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { scanOfferLetter, OfferScanResponse, describeApiError } from '../services/api';
 
-export const OfferLetterScanner: React.FC = () => {
+interface Props {
+  onSwitchToResume?: () => void;
+}
+
+export const OfferLetterScanner: React.FC<Props> = ({ onSwitchToResume }) => {
   const [activeMode, setActiveMode] = useState<'upload' | 'paste'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState<string>('');
@@ -120,6 +124,36 @@ export const OfferLetterScanner: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Switch to Resume Scorer Banner */}
+      {onSwitchToResume && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-indigo-950/40 border border-indigo-500/20 shadow-lg">
+          <div className="flex items-center gap-3 text-indigo-200">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-200">Looking to audit your Resume / CV instead?</p>
+              <p className="text-[11px] text-slate-400">Score ATS readability, impact metrics, action verbs, and check for Aadhaar/PAN privacy leaks.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onSwitchToResume}
+            className="px-3.5 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <span>Score Resume</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </button>
+        </div>
+      )}
 
       {!result ? (
         /* Upload / Input Card */
@@ -256,6 +290,8 @@ export const OfferLetterScanner: React.FC = () => {
             className={`rounded-2xl p-6 sm:p-8 border shadow-2xl relative overflow-hidden ${
               result.verdict === 'GENUINE'
                 ? 'bg-gradient-to-br from-emerald-950/70 via-slate-900 to-slate-950 border-emerald-500/40 shadow-emerald-950/30'
+                : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
+                ? 'bg-gradient-to-br from-amber-950/80 via-slate-900 to-slate-950 border-amber-500/40 shadow-amber-950/30'
                 : result.verdict === 'SUSPICIOUS'
                 ? 'bg-gradient-to-br from-amber-950/70 via-slate-900 to-slate-950 border-amber-500/40 shadow-amber-950/30'
                 : 'bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-950 border-rose-500/40 shadow-rose-950/40'
@@ -268,19 +304,23 @@ export const OfferLetterScanner: React.FC = () => {
                     className={`inline-block w-3 h-3 rounded-full animate-pulse ${
                       result.verdict === 'GENUINE'
                         ? 'bg-emerald-400'
+                        : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
+                        ? 'bg-amber-400'
                         : result.verdict === 'SUSPICIOUS'
                         ? 'bg-amber-400'
                         : 'bg-rose-400'
                     }`}
                   />
                   <span className="text-xs font-bold tracking-wider uppercase text-slate-400">
-                    Forensic Verdict
+                    {result.is_scanned_image ? 'Scanned Document Forensics' : 'Forensic Verdict'}
                   </span>
                 </div>
                 <h3
                   className={`text-2xl sm:text-3xl font-black tracking-tight ${
                     result.verdict === 'GENUINE'
                       ? 'text-emerald-300'
+                      : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
+                      ? 'text-amber-300'
                       : result.verdict === 'SUSPICIOUS'
                       ? 'text-amber-300'
                       : 'text-rose-300'
@@ -291,10 +331,35 @@ export const OfferLetterScanner: React.FC = () => {
                 <p className="text-sm text-slate-300 max-w-lg">
                   {result.verdict === 'GENUINE'
                     ? 'No predatory clauses or suspicious fee demands detected. Always verify salary terms and physical workplace.'
+                    : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
+                    ? 'The uploaded document contains scanned raster images without selectable vector text layers. Many scam networks use scanned bitmaps to evade automated fraud detectors. Review the document forensics below, or paste the text directly.'
                     : result.verdict === 'SUSPICIOUS'
                     ? 'Several caution indicators were flagged. Contact HR through official website channels before signing.'
                     : 'CRITICAL WARNING: This document exhibits high-probability recruitment fraud signatures. Never pay any fees.'}
                 </p>
+
+                {result.is_scanned_image && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResult(null);
+                        setSelectedFile(null);
+                        setActiveMode('paste');
+                        setError(null);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-bold transition shadow-sm"
+                    >
+                      <svg className="w-3.5 h-3.5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                      </svg>
+                      <span>Have Offer Email / Text? Switch to Paste Mode</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Legitimacy Score Circle */}
@@ -333,7 +398,13 @@ export const OfferLetterScanner: React.FC = () => {
                 <div>
                   <div className="text-xs font-semibold text-slate-400 uppercase">Legitimacy Score</div>
                   <div className="text-sm font-bold text-slate-200">
-                    {result.legitimacy_score >= 70 ? 'High Confidence' : result.legitimacy_score >= 40 ? 'Moderate Caution' : 'Severe Fraud Risk'}
+                    {result.is_scanned_image
+                      ? 'Requires Manual Caution'
+                      : result.legitimacy_score >= 70
+                      ? 'High Confidence'
+                      : result.legitimacy_score >= 40
+                      ? 'Moderate Caution'
+                      : 'Severe Fraud Risk'}
                   </div>
                 </div>
               </div>
@@ -388,9 +459,11 @@ export const OfferLetterScanner: React.FC = () => {
               </div>
 
               <div className="p-3.5 bg-slate-950/60 border border-slate-800/80 rounded-xl">
-                <div className="text-xs text-slate-400">Scanned Document Size</div>
+                <div className="text-xs text-slate-400">Document Size & Format</div>
                 <div className="text-sm font-semibold text-slate-100 mt-1 truncate">
-                  {result.extracted_details.char_count} characters
+                  {result.extracted_details.file_size_kb
+                    ? `${result.extracted_details.file_size_kb} KB ${result.is_scanned_image ? '(Image PDF)' : ''}`
+                    : `${result.extracted_details.char_count} characters`}
                 </div>
               </div>
             </div>
