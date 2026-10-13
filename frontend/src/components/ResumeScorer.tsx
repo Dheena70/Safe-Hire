@@ -5,97 +5,8 @@ interface Props {
   onSwitchToOfferScan?: () => void;
 }
 
-const SAMPLE_RESUMES = [
-  {
-    title: 'Data Quality Analyst',
-    targetRole: 'Data Quality Analyst',
-    text: `Hrishikesh K V
-Email: hrishikesh.analyst@example.com | Phone: +91 9876543210 | Chennai, India
-LinkedIn: linkedin.com/in/hrishikesh-kv | GitHub: github.com/hrishikesh-kv
-
-PROFESSIONAL SUMMARY
-Analytical Data Quality Analyst with 2+ years of experience auditing large-scale datasets, designing automated SQL data validation pipelines, and enforcing data integrity across enterprise schemas. Reduced pipeline data anomalies by 42% and automated ETL reconciliation saving 15 hours per week.
-
-CORE SKILLS
-- Programming & Analytics: Python (Pandas, NumPy), SQL (PostgreSQL, BigQuery), R
-- Data Quality & ETL: DBT, Great Expectations, Apache Airflow, Data Profiling, Schema Validation
-- Visualization & BI: Tableau, Power BI, Metabase
-- Tools & Cloud: Git, Docker, AWS (S3, Athena), Linux, CI/CD
-
-PROFESSIONAL EXPERIENCE
-Data Quality Analyst | Apex Analytics Solutions, Chennai
-July 2023 - Present
-- Architected automated data verification frameworks using Python and SQL, inspecting over 2.5M daily records for nulls, duplications, and type consistency.
-- Reduced data discrepancy incidents by 42% across 18 critical production data models.
-- Collaborated with 6 cross-functional engineering teams to formulate strict SLA validation policies.
-- Automated weekly data compliance auditing dashboards in Power BI, accelerating reporting turnaround by 35%.
-
-Associate Data Analyst | Cognizant Technology Solutions, Chennai
-August 2021 - June 2023
-- Executed complex SQL transformation queries and validated data pipelines for Fortune 500 clients.
-- Detected and resolved 150+ critical data discrepancies in staging environments prior to production release.
-- Implemented Python scripts to clean and standardize messy vendor datasets with 99.8% accuracy.
-
-EDUCATION
-Bachelor of Engineering (B.E.) in Computer Science & Engineering
-Anna University, Chennai | CGPA: 8.4 / 10 | 2017 - 2021
-
-PROJECTS
-- Automated SQL Schema Auditor: Open-source CLI tool analyzing PostgreSQL tables for constraint violations and missing indexes.
-- E-Commerce Transaction Fraud Detector: Machine learning pipeline analyzing 50,000 credit transactions using Random Forest and Logistic Regression.
-
-CERTIFICATIONS
-- Google Data Analytics Professional Certificate (Coursera)
-- AWS Certified Cloud Practitioner`
-  },
-  {
-    title: 'Full Stack Engineer',
-    targetRole: 'Full Stack Developer',
-    text: `Priya Ramanathan
-Email: priya.dev@example.com | Mobile: +91 9845123456 | Bengaluru, India
-GitHub: github.com/priya-ramanathan | Portfolio: priya.dev
-
-PROFESSIONAL SUMMARY
-Results-driven Full Stack Developer with experience engineering robust web applications using React, TypeScript, Node.js, and Python. Proven track record of improving application load speed by 38% and deploying scalable microservices to AWS.
-
-TECHNICAL EXPERTISE
-- Frontend: React 18, TypeScript, Next.js, Tailwind CSS, Redux Toolkit, HTML5, CSS3
-- Backend: Node.js, Express, Python (FastAPI, Flask), RESTful APIs, GraphQL
-- Databases: PostgreSQL, MongoDB, Redis
-- Cloud & DevOps: Docker, AWS (EC2, S3), Git, CI/CD, Nginx
-
-EXPERIENCE
-Full Stack Developer | NexaTech Labs, Bengaluru
-March 2022 - Present
-- Engineered high-traffic customer portal serving 120,000 active monthly users using React, TypeScript, and Node.js.
-- Refactored legacy monolithic backend into decoupled REST microservices, reducing server response latency by 45%.
-- Implemented automated end-to-end testing with Jest and Cypress, increasing code coverage from 62% to 88%.
-- Optimized database indexing and Redis caching, cutting database query latency by 50%.
-
-Junior Web Developer | Innovate Web Solutions, Coimbatore
-June 2020 - February 2022
-- Developed responsive web interfaces for 14 e-commerce clients using React and Tailwind CSS.
-- Integrated third-party payment gateways (Stripe, Razorpay) with webhook validation and zero payment loss.
-- Collaborated in an agile scrum team to deliver bi-weekly production sprint releases.
-
-EDUCATION
-B.Tech in Information Technology
-PSG College of Technology, Coimbatore | 2016 - 2020
-
-PROJECTS
-- Safe Hire Job Scam Detector: Web security scanner built with React, Flask, and Scikit-learn to verify corporate legitimacy.
-- Real-Time Team Collaboration Suite: Socket.io and React whiteboard application with live markdown editing.
-
-CERTIFICATIONS
-- Meta Certified Front-End Developer
-- AWS Certified Developer - Associate`
-  }
-];
-
 export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
-  const [activeMode, setActiveMode] = useState<'upload' | 'paste'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [pastedText, setPastedText] = useState<string>('');
   const [targetRole, setTargetRole] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -118,11 +29,12 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.txt')) {
+      const name = file.name.toLowerCase();
+      if (name.endsWith('.pdf') || name.endsWith('.txt') || name.endsWith('.docx') || name.endsWith('.doc')) {
         setSelectedFile(file);
         setError(null);
       } else {
-        setError('Please upload a valid PDF (.pdf) or Plain Text (.txt) resume file.');
+        setError('Please upload a valid PDF (.pdf), Word (.docx), or Text (.txt) resume file.');
       }
     }
   };
@@ -136,19 +48,14 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
 
   const handleScore = async () => {
     setError(null);
-    if (activeMode === 'upload' && !selectedFile) {
-      setError('Please select or drag-and-drop a resume PDF or TXT file to score.');
-      return;
-    }
-    if (activeMode === 'paste' && (!pastedText.trim() || pastedText.trim().length < 50)) {
-      setError('Please paste the complete text of your resume (minimum 50 characters).');
+    if (!selectedFile) {
+      setError('Please select or drag-and-drop a resume file (PDF, DOCX, or TXT) to score.');
       return;
     }
 
     setLoading(true);
     try {
-      const input = activeMode === 'upload' ? selectedFile! : pastedText;
-      const res = await scoreResume(input, targetRole);
+      const res = await scoreResume(selectedFile, targetRole);
       setResult(res);
     } catch (err: any) {
       setError(describeApiError(err));
@@ -157,19 +64,9 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
     }
   };
 
-  const handleLoadSample = (sample: typeof SAMPLE_RESUMES[0]) => {
-    setActiveMode('paste');
-    setPastedText(sample.text);
-    setTargetRole(sample.targetRole);
-    setSelectedFile(null);
-    setError(null);
-    setResult(null);
-  };
-
   const handleReset = () => {
     setResult(null);
     setSelectedFile(null);
-    setPastedText('');
     setTargetRole('');
     setError(null);
     if (fileInputRef.current) {
@@ -214,29 +111,6 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
               Evaluate your resume for ATS parsability, impact metrics, strong action verbs, and section completeness while auditing against identity theft (Aadhaar & PAN card leakage).
             </p>
           </div>
-
-          <div className="flex items-center gap-2 bg-slate-950/60 p-1.5 rounded-xl border border-slate-800 self-stretch sm:self-auto">
-            <button
-              onClick={() => { setActiveMode('upload'); setError(null); }}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeMode === 'upload'
-                  ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/25'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Upload PDF / TXT
-            </button>
-            <button
-              onClick={() => { setActiveMode('paste'); setError(null); }}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeMode === 'paste'
-                  ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-indigo-500/25'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Paste Text
-            </button>
-          </div>
         </div>
       </div>
 
@@ -273,13 +147,12 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
             </div>
           </div>
 
-          {activeMode === 'upload' ? (
             <div>
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".pdf,.txt"
+                accept=".pdf,.txt,.docx,.doc"
                 className="hidden"
               />
               <div
@@ -322,7 +195,7 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
                   <p className="text-xs text-slate-400">
                     {selectedFile
                       ? `${(selectedFile.size / 1024).toFixed(1)} KB — Ready for ATS analysis`
-                      : 'Supports PDF (.pdf) and Plain Text (.txt) up to 10MB'}
+                      : 'Supports PDF (.pdf), Word (.docx), and Plain Text (.txt) up to 10MB'}
                   </p>
                 </div>
 
@@ -341,50 +214,6 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
                 )}
               </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Resume Content Text
-              </label>
-              <textarea
-                value={pastedText}
-                onChange={(e) => setPastedText(e.target.value)}
-                placeholder="Paste the full text of your resume here, including contact info, summary, experience, skills, and education..."
-                rows={10}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-mono leading-relaxed"
-              />
-              <div className="flex justify-between items-center text-xs text-slate-500 px-1">
-                <span>ATS algorithm parses keywords, verbs, metrics & privacy info</span>
-                <span>{pastedText.length} characters</span>
-              </div>
-            </div>
-          )}
-
-          {/* Quick 1-Click Samples */}
-          <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Quick 1-Click Test Presets
-              </span>
-              <span className="text-[11px] text-slate-500">Test ATS scoring instantly</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {SAMPLE_RESUMES.map((sample, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleLoadSample(sample)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-xs font-medium text-slate-300 hover:text-white border border-slate-700/60 transition flex items-center gap-1.5"
-                >
-                  <svg className="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                  <span>Sample: {sample.title}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Action Button */}
           <div className="pt-2">

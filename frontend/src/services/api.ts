@@ -161,9 +161,21 @@ export interface OfferScanResponse {
   scanned_at?: string;
 }
 
+export interface JobMatchAnalysis {
+  match_score: number;
+  fit_verdict: 'HIGH_FIT' | 'MODERATE_FIT' | 'LOW_FIT' | string;
+  fit_label: string;
+  matched_skills: string[];
+  missing_skills: string[];
+  total_job_skills_found: number;
+  matched_count: number;
+  missing_count: number;
+}
+
 export interface ResumeScoreResponse {
   overall_score: number;
   grade: string;
+  job_match?: JobMatchAnalysis;
   word_count: number;
   metrics_count: number;
   action_verbs_count: number;
@@ -251,15 +263,18 @@ export const scanOfferLetter = async (input: File | string): Promise<OfferScanRe
   }
 };
 
-export const scoreResume = async (input: File | string, targetRole: string = ''): Promise<ResumeScoreResponse> => {
+export const scoreResume = async (input: File | string, targetRole: string = '', jobDescription: string = ''): Promise<ResumeScoreResponse> => {
   if (typeof input === 'string') {
-    const response = await api.post('/api/score-resume', { text: input, target_role: targetRole });
+    const response = await api.post('/api/score-resume', { text: input, target_role: targetRole, job_description: jobDescription });
     return response.data;
   } else {
     const formData = new FormData();
     formData.append('file', input);
     if (targetRole) {
       formData.append('target_role', targetRole);
+    }
+    if (jobDescription) {
+      formData.append('job_description', jobDescription);
     }
     const response = await api.post('/api/score-resume', formData);
     return response.data;

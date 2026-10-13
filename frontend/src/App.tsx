@@ -17,7 +17,7 @@ import shieldLogo from './assets/safe-hire-shield.png';
 function App() {
   const [user, setUser] = useState<AuthResponse | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'resume-score' | 'safe-companies' | 'scam-board'>('verify');
+  const [activeTab, setActiveTab] = useState<'verify' | 'offer-scan' | 'safe-companies' | 'scam-board'>('verify');
   const [selectedSafeCompany, setSelectedSafeCompany] = useState<{ company_name: string; cin?: string } | null>(null);
   const [isNotFound, setIsNotFound] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
@@ -210,24 +210,7 @@ function App() {
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span>Offer Letter PDF Scanner</span>
-                </button>
-
-                <button
-                  onClick={() => { setIsNotFound(false); setActiveTab('resume-score'); }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-                    activeTab === 'resume-score'
-                      ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-md shadow-indigo-500/20'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                  }`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                  <span>AI Resume Scorer</span>
+                  <span>Offer Letter & Resume Scanner</span>
                 </button>
 
                 <button
@@ -269,15 +252,7 @@ function App() {
           ) : showAdmin && isAdmin ? (
             <AdminDashboard token={user.access_token} />
           ) : activeTab === 'offer-scan' ? (
-            <OfferLetterScanner
-              initialDocumentType="offer-letter"
-              onSwitchToResume={() => setActiveTab('resume-score')}
-            />
-          ) : activeTab === 'resume-score' ? (
-            <OfferLetterScanner
-              initialDocumentType="resume-score"
-              onSwitchToResume={() => setActiveTab('resume-score')}
-            />
+            <OfferLetterScanner />
           ) : activeTab === 'safe-companies' ? (
             <SafeCompanyExplorer
               onSelectCompany={(compName, cin) => {

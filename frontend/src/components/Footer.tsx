@@ -4,7 +4,7 @@ import shieldLogo from '../assets/safe-hire-shield.png';
 interface Props {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
-  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'resume-score' | 'safe-companies' | 'scam-board') => void;
+  onSelectTab?: (tab: 'verify' | 'offer-scan' | 'safe-companies' | 'scam-board') => void;
   onTrigger404?: () => void;
 }
 
@@ -87,11 +87,11 @@ export const Footer: React.FC<Props> = ({
               </li>
               <li>
                 <a
-                  href="#resume-score"
+                  href="#offer-scan"
                   onClick={(e) => {
                     if (onSelectTab) {
                       e.preventDefault();
-                      onSelectTab('resume-score');
+                      onSelectTab('offer-scan');
                     }
                   }}
                   className="text-slate-400 hover:text-indigo-400 transition-colors inline-flex items-center gap-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500/50 rounded-lg"

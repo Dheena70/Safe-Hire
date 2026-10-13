@@ -1812,8 +1812,8 @@ RESUME_TECH_KEYWORDS = {
     'graphql', 'ci/cd', 'agile', 'scrum', 'devops', 'microservices'
 }
 
-def analyze_resume_text(text: str, target_role: str = '') -> dict:
-    """Evaluate candidate resume for ATS compatibility, keyword density, and privacy safety"""
+def analyze_resume_text(text: str, target_role: str = '', job_description: str = '') -> dict:
+    """Evaluate candidate resume for ATS compatibility, keyword density, privacy safety, and optional job match fit"""
     clean_text = text.strip()
     text_lower = clean_text.lower()
     words = re.findall(r'\b[a-zA-Z0-9+#.-]+\b', text_lower)
@@ -1921,9 +1921,50 @@ def analyze_resume_text(text: str, target_role: str = '') -> dict:
         else:
             improvements.append(f"Tailor your headline and summary to specifically highlight '{target_role}'.")
 
+    # Optional Job-Resume Fit Analysis
+    job_match = None
+    if job_description and len(job_description.strip()) >= 10:
+        jd_lower = job_description.lower()
+        jd_skills = [k for k in RESUME_TECH_KEYWORDS if k in jd_lower]
+        matched_skills = [s for s in detected_skills if s in jd_skills]
+        missing_job_skills = [s for s in jd_skills if s not in detected_skills]
+
+        if jd_skills:
+            match_pct = int((len(matched_skills) / len(jd_skills)) * 100)
+        else:
+            jd_words = set(re.findall(r'\b[a-zA-Z]{3,}\b', jd_lower))
+            res_words = set(words)
+            overlap = jd_words.intersection(res_words)
+            match_pct = int(min(95, max(30, (len(overlap) / max(10, len(jd_words))) * 120)))
+
+        role_boost = 15 if (target_role and any(w in text_lower for w in target_role.lower().split() if len(w) > 3)) else 0
+        final_match_score = min(100, max(15, int(match_pct * 0.85 + role_boost)))
+
+        if final_match_score >= 75:
+            fit_verdict = "HIGH_FIT"
+            fit_label = "Strong Fit - Recommended to Apply"
+        elif final_match_score >= 50:
+            fit_verdict = "MODERATE_FIT"
+            fit_label = "Moderate Fit - Potential Match with Skill Gaps"
+        else:
+            fit_verdict = "LOW_FIT"
+            fit_label = "Low Fit - Significant Skill & Requirement Gaps"
+
+        job_match = {
+            "match_score": final_match_score,
+            "fit_verdict": fit_verdict,
+            "fit_label": fit_label,
+            "matched_skills": [('C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else s.capitalize()) for s in matched_skills],
+            "missing_skills": [('C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else s.capitalize()) for s in missing_job_skills],
+            "total_job_skills_found": len(jd_skills),
+            "matched_count": len(matched_skills),
+            "missing_count": len(missing_job_skills)
+        }
+
     return {
         "overall_score": overall_score,
         "grade": grade,
+        "job_match": job_match,
         "word_count": word_count,
         "metrics_count": len(metrics_found),
         "action_verbs_count": len(verbs_used),
@@ -2057,6 +2098,7 @@ def score_resume():
         extracted_text = ""
         filename = "pasted_resume"
         target_role = ""
+        job_description = ""
 
         if 'file' in request.files:
             file_obj = request.files['file']
@@ -2066,6 +2108,7 @@ def score_resume():
                 return jsonify({"error": "Uploaded resume file is empty."}), 400
 
             target_role = sanitize_text(request.form.get('target_role', ''), max_len=100).strip()
+            job_description = sanitize_text(request.form.get('job_description', ''), max_len=10000).strip()
 
             if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
                 extracted_text, _ = extract_text_and_meta_from_pdf(file_bytes)
@@ -2078,13 +2121,14 @@ def score_resume():
             data = request.get_json(silent=True) or request.form
             extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
             target_role = sanitize_text(data.get('target_role', ''), max_len=100).strip()
+            job_description = sanitize_text(data.get('job_description', ''), max_len=10000).strip()
 
         if not extracted_text or len(extracted_text) < 20:
             return jsonify({
-                "error": "Could not extract readable text from resume. If this is an image-only scan, please paste the resume text directly."
+                "error": "Could not extract readable text from resume. If this is an image-only scan, please upload a digital PDF or text file."
             }), 400
 
-        result = analyze_resume_text(extracted_text, target_role=target_role)
+        result = analyze_resume_text(extracted_text, target_role=target_role, job_description=job_description)
         result['filename'] = filename
         return jsonify(result)
 
