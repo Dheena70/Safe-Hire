@@ -1708,8 +1708,66 @@ FEE_KEYWORDS_REGEX = re.compile(
 FREE_EMAIL_DOMAINS = {'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'rediffmail.com', 'aol.com', 'mail.com', 'yopmail.com', 'protonmail.com'}
 TOP_MNCS = {'tcs', 'tata consultancy services', 'infosys', 'wipro', 'hcl', 'cognizant', 'accenture', 'google', 'microsoft', 'amazon', 'ibm', 'capgemini', 'tech mahindra', 'zoho', 'oracle', 'deloitte', 'l&t', 'larsentoubro'}
 
+MARKET_ROLE_SALARIES = {
+    'assistant data analyst': {'title': 'Assistant Data Analyst', 'median_base': 13.9, 'median_ctc': 15.0, 'median_bonus': 1.1, 'median_stocks': 0.0},
+    'data analyst': {'title': 'Data Analyst', 'median_base': 11.5, 'median_ctc': 13.5, 'median_bonus': 1.2, 'median_stocks': 1.0},
+    'senior data analyst': {'title': 'Senior Data Analyst', 'median_base': 18.0, 'median_ctc': 22.0, 'median_bonus': 2.5, 'median_stocks': 3.0},
+    'data scientist': {'title': 'Data Scientist', 'median_base': 14.0, 'median_ctc': 17.5, 'median_bonus': 2.0, 'median_stocks': 2.5},
+    'machine learning': {'title': 'Machine Learning Engineer', 'median_base': 15.0, 'median_ctc': 19.0, 'median_bonus': 2.2, 'median_stocks': 3.0},
+    'java full stack': {'title': 'Java Full Stack Developer', 'median_base': 9.5, 'median_ctc': 12.0, 'median_bonus': 1.0, 'median_stocks': 1.0},
+    'java developer': {'title': 'Java Developer', 'median_base': 9.0, 'median_ctc': 11.5, 'median_bonus': 1.0, 'median_stocks': 1.0},
+    'full stack': {'title': 'Full Stack Developer', 'median_base': 10.0, 'median_ctc': 12.5, 'median_bonus': 1.2, 'median_stocks': 1.2},
+    'frontend': {'title': 'Frontend Developer (React / UI)', 'median_base': 8.5, 'median_ctc': 10.5, 'median_bonus': 0.8, 'median_stocks': 0.8},
+    'backend': {'title': 'Backend Developer', 'median_base': 9.5, 'median_ctc': 12.0, 'median_bonus': 1.0, 'median_stocks': 1.0},
+    'python developer': {'title': 'Python Developer', 'median_base': 9.0, 'median_ctc': 11.5, 'median_bonus': 1.0, 'median_stocks': 1.0},
+    'software engineer': {'title': 'Software Engineer (SDE)', 'median_base': 10.5, 'median_ctc': 13.0, 'median_bonus': 1.2, 'median_stocks': 1.5},
+    'developer': {'title': 'Software Developer', 'median_base': 9.0, 'median_ctc': 11.5, 'median_bonus': 1.0, 'median_stocks': 1.0},
+    'devops': {'title': 'DevOps / Cloud Engineer', 'median_base': 12.0, 'median_ctc': 15.0, 'median_bonus': 1.5, 'median_stocks': 1.5},
+    'cloud': {'title': 'Cloud Infrastructure Engineer', 'median_base': 12.0, 'median_ctc': 15.0, 'median_bonus': 1.5, 'median_stocks': 1.5},
+    'trainee': {'title': 'Graduate Engineer Trainee', 'median_base': 4.2, 'median_ctc': 4.8, 'median_bonus': 0.3, 'median_stocks': 0.0},
+    'intern': {'title': 'Intern / Apprentice', 'median_base': 2.4, 'median_ctc': 2.8, 'median_bonus': 0.0, 'median_stocks': 0.0},
+    'qa': {'title': 'QA Automation Engineer', 'median_base': 8.0, 'median_ctc': 10.0, 'median_bonus': 0.8, 'median_stocks': 0.5},
+    'analyst': {'title': 'Business / Systems Analyst', 'median_base': 8.5, 'median_ctc': 10.5, 'median_bonus': 0.9, 'median_stocks': 0.5},
+    'default': {'title': 'Corporate Professional Role', 'median_base': 8.0, 'median_ctc': 10.0, 'median_bonus': 0.8, 'median_stocks': 0.5}
+}
+
+MAJOR_LOCATIONS = [
+    'chennai', 'bengaluru', 'bangalore', 'hyderabad', 'mumbai', 'pune',
+    'delhi', 'new delhi', 'noida', 'gurgaon', 'gurugram', 'kolkata',
+    'coimbatore', 'kochi', 'ahmedabad', 'mysuru', 'mysore', 'trivandrum',
+    'thiruvananthapuram', 'chandigarh', 'jaipur', 'indore', 'remote', 'work from home'
+]
+
+def parse_salary_value_to_lakhs(val_str: str) -> float:
+    """Helper to convert various salary strings to annual lakhs (LPA) float"""
+    if not val_str or str(val_str).lower() in ['nil', 'none', 'n/a', '0', 'not found', '']:
+        return 0.0
+    s = str(val_str).lower().replace(',', '').replace('₹', '').replace('rs.', '').replace('rs', '').replace('inr', '').strip()
+    lakh_match = re.search(r'([0-9.]+)\s*(?:lakhs?|lpa|lac)', s)
+    if lakh_match:
+        try:
+            return float(lakh_match.group(1))
+        except Exception:
+            pass
+
+    is_pm = 'per month' in s or 'pm' in s or '/month' in s
+    num_match = re.search(r'([0-9.]+)', s)
+    if num_match:
+        try:
+            val = float(num_match.group(1))
+            if is_pm:
+                annual = val * 12
+                return round(annual / 100000.0, 2)
+            elif val > 10000:
+                return round(val / 100000.0, 2)
+            elif val > 0:
+                return round(val, 2)
+        except Exception:
+            pass
+    return 0.0
+
 def analyze_offer_letter_text(raw_text: str) -> dict:
-    """Deep forensic inspection of offer letter document text"""
+    """Deep forensic inspection of offer letter document text with 6figr-style compensation benchmarking"""
     clean_text = raw_text[:30000]
     text_lower = clean_text.lower()
 
@@ -1789,9 +1847,31 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
         extracted_company = lines[0][:50]
 
     for line in lines[:15]:
-        if any(w in line.lower() for w in ['offer', 'position', 'role', 'designation', 'appointment', 'developer', 'engineer', 'analyst', 'manager', 'executive', 'assistant', 'intern']):
-            extracted_title = line[:60]
+        pos_m = re.search(r'(?:position|role|designation|post)\s+(?:of\s+)?([a-zA-Z\s/&-]+?)(?:\s+(?:at|in|with|for)\s+.*|$)', line, re.IGNORECASE)
+        if pos_m and len(pos_m.group(1).strip()) > 3:
+            extracted_title = pos_m.group(1).strip()
             break
+        elif any(w in line.lower() for w in ['developer', 'engineer', 'analyst', 'manager', 'executive', 'assistant', 'intern', 'specialist', 'consultant']):
+            extracted_title = line[:80].strip()
+            break
+
+    # Clean extracted company name from noisy prefixes
+    extracted_company = re.sub(r'^(?:offer\s+of\s+employment|appointment\s+letter|letter\s+of\s+intent|job\s+offer)\s*[-:]*\s*', '', extracted_company, flags=re.IGNORECASE).strip()
+    extracted_title = re.sub(r'^(?:position|role|designation|post)\s*[:\-]*\s*(?:of\s+)?', '', extracted_title, flags=re.IGNORECASE).strip()
+    extracted_title = re.sub(r'\s+(?:at|in|with)\s+.*$', '', extracted_title, flags=re.IGNORECASE).strip()
+
+    # Extract Location
+    detected_location = "India (Metro / Corporate)"
+    for loc in MAJOR_LOCATIONS:
+        if re.search(r'\b' + loc + r'\b', text_lower):
+            detected_location = loc.capitalize() if loc != 'work from home' else 'Remote'
+            break
+
+    # Extract Offer Date
+    detected_date = datetime.now().strftime("%b %d, %Y")
+    date_match = re.search(r'(?:date|dated|dt\.?)[\s:]+([0-9]{1,2}[-\s/]+[a-zA-Z]{3,9}[-\s/]+[0-9]{2,4}|[a-zA-Z]{3,9}\s+[0-9]{1,2}(?:st|nd|rd|th)?,?\s+[0-9]{4}|[0-9]{1,2}[-\s/]+[0-9]{1,2}[-\s/]+[0-9]{2,4})', clean_text, re.IGNORECASE)
+    if date_match:
+        detected_date = date_match.group(1).strip()
 
     # Check scam database
     scam_match = check_scam_database(extracted_company) if extracted_company else None
@@ -1806,11 +1886,106 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
         company_name_label = extracted_company or (mnc_mentioned[0].upper() if mnc_mentioned else '')
         green_flags.append(f"Entity profile verified: '{company_name_label}' matches recognized corporate enterprise standards.")
 
-    # 6. Extract salary if any
-    salary_match = re.findall(r'(?:ctc|salary|stipend|package|inr|rs\.?|₹)\s*[:\-]?\s*([0-9,]+(?:\s*(?:lpa|per\s+month|pm|per\s+annum|lac|lakh))?)', clean_text, re.IGNORECASE)
+    # 6. Extract Compensation Breakdown
+    salary_match = re.findall(r'(?:ctc|salary|stipend|package|inr|rs\.?|₹)\s*[:\-]?\s*([0-9,]+(?:\s*(?:lpa|per\s+month|pm|per\s+annum|lac|lakh|lakhs))?)', clean_text, re.IGNORECASE)
     extracted_salary = salary_match[0] if salary_match else "Not explicitly specified"
-    if salary_match:
-        green_flags.append(f"Standard compensation terms specified ({extracted_salary}).")
+
+    # Deep Base / Bonus / Signing / Stocks Extraction
+    base_m = re.search(r'(?:basic|base)\s*(?:salary|pay)?\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k|pm|per\s+month))?)', clean_text, re.IGNORECASE)
+    raw_base = base_m.group(1).strip() if base_m else ""
+
+    bonus_m = re.search(r'(?:performance\s+bonus|annual\s+bonus|variable\s+pay|bonus)\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
+    raw_bonus = bonus_m.group(1).strip() if bonus_m else "NIL"
+
+    signing_m = re.search(r'(?:signing|joining)\s*bonus\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
+    raw_signing = signing_m.group(1).strip() if signing_m else "NIL"
+
+    stocks_m = re.search(r'(?:total\s+stocks|stocks|esops?|equity|rsu)\s*[:\-]?\s*(?:rs\.?|inr|₹|\$)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|usd|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
+    raw_stocks = stocks_m.group(1).strip() if stocks_m else "NIL"
+
+    ctc_m = re.search(r'(?:total\s+ctc|ctc|cost\s+to\s+company|package|gross\s+annual|annual\s+salary)\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|lac|lakhs|per\s+annum))?)', clean_text, re.IGNORECASE)
+    raw_ctc = ctc_m.group(1).strip() if ctc_m else (extracted_salary if extracted_salary != "Not explicitly specified" else "")
+
+    base_num = parse_salary_value_to_lakhs(raw_base)
+    ctc_num = parse_salary_value_to_lakhs(raw_ctc)
+    bonus_num = parse_salary_value_to_lakhs(raw_bonus)
+    signing_num = parse_salary_value_to_lakhs(raw_signing)
+    stocks_num = parse_salary_value_to_lakhs(raw_stocks)
+
+    # Derive missing values with reasonable logic
+    if ctc_num == 0.0 and base_num > 0.0:
+        ctc_num = base_num
+    if base_num == 0.0 and ctc_num > 0.0:
+        base_num = round(ctc_num * 0.85, 2)
+
+    base_display = f"Rs. {base_num:g} Lakhs" if base_num > 0 else (raw_base or "Not Specified")
+    ctc_display = f"Rs. {ctc_num:g} Lakhs" if ctc_num > 0 else (raw_ctc or "Not Specified")
+    bonus_display = f"Rs. {bonus_num:g} Lakhs" if bonus_num > 0 else "Rs. 0"
+    signing_display = f"Rs. {signing_num:g} Lakhs" if signing_num > 0 else "Rs. 0"
+    stocks_display = f"Rs. {stocks_num:g} Lakhs" if stocks_num > 0 else "Rs. 0"
+    stocks_vesting = "4 Years (Standard)" if stocks_num > 0 or 'vesting' in text_lower else "N/A"
+
+    # 7. Market Benchmarking
+    bench = MARKET_ROLE_SALARIES['default']
+    t_clean = (extracted_title or "").lower()
+    for k, v in MARKET_ROLE_SALARIES.items():
+        if k != 'default' and k in t_clean:
+            bench = v
+            break
+
+    # Calculate Salary Gap vs Market Median
+    ref_base = base_num if base_num > 0 else (ctc_num if ctc_num > 0 else 0.0)
+    if ref_base > 0:
+        gap_percent = round(((ref_base - bench['median_base']) / bench['median_base']) * 100)
+    else:
+        gap_percent = 0
+
+    is_below_market = gap_percent < 0
+    salary_anomaly_detected = False
+    anomaly_severity = "NORMAL"
+    anomaly_reason = f"Offered compensation aligns with competitive market standards for {bench['title']}."
+
+    if ref_base > 0 and gap_percent <= -50:
+        salary_anomaly_detected = True
+        anomaly_severity = "CRITICAL"
+        anomaly_reason = f"CRITICAL SALARY ANOMALY: Offered package ({base_display}) is {abs(gap_percent)}% below the market median of Rs. {bench['median_base']} Lakhs. In corporate Indian enterprises like {extracted_company or 'Top MNCs'}, sub-1 LPA / sub-standard packages frequently indicate unauthorized recruitment scam operations, commission-only third parties, or fake trainee traps."
+        red_flags.append(f"Severe Compensation Anomaly: Offered base salary is {abs(gap_percent)}% below the Indian market median (Rs. {bench['median_base']}L) for {bench['title']}.")
+    elif ref_base > 0 and gap_percent <= -25:
+        salary_anomaly_detected = True
+        anomaly_severity = "MODERATE"
+        anomaly_reason = f"Below Market Average: Offered compensation is {abs(gap_percent)}% below standard market benchmark (Rs. {bench['median_base']} Lakhs) for {bench['title']}."
+    elif ref_base > 0:
+        green_flags.append(f"Compensation verified: Salary offer ({ctc_display}) is competitive and aligns with market benchmarks ({bench['title']}).")
+
+    # 8. Generate 5-Point AI Offer Analysis & Negotiation Intelligence (6figr Style)
+    insight_gap = (
+        f"1. Salary Gap: The offered base salary of {base_display} is {abs(gap_percent)}% {'below' if is_below_market else 'above'} the market median of Rs. {bench['median_base']} Lakhs for an {bench['title']} at {extracted_company or 'Indian Enterprises'} in {detected_location}. "
+        + ("Extreme lowball or non-standard compensation detected; verify with HR before acceptance." if salary_anomaly_detected else "Base compensation reflects competitive industry compensation.")
+    )
+
+    insight_bonus = (
+        f"2. Performance Bonus: {'No performance bonus is included in this offer' if bonus_num == 0 else f'Performance bonus of {bonus_display} is specified'}, whereas the market median bonus for {bench['title']} is approximately Rs. {bench['median_bonus']} Lakhs (approx 8-15% of annual base). Candidates should ask HR whether annual variable incentives are offered based on team goals."
+    )
+
+    insight_signing = (
+        f"3. Signing Bonus: {'No signing / joining bonus is offered in this package' if signing_num == 0 else f'Signing bonus of {signing_display} is included'}. For mid-tier and corporate roles, joining bonuses between Rs. 0.5L and Rs. 2.0L are negotiable to compensate for relocation expenses or notice period buyout costs."
+    )
+
+    insight_stocks = (
+        f"4. Total Stocks & Equity: {'No equity, RSU, or stock grant is included in this offer' if stocks_num == 0 else f'Stock grant / ESOP value of {stocks_display} is included with {stocks_vesting} vesting'}. Retention-focused corporate tech compensation typically incorporates equity vesting over 3 to 4 years for mid-to-senior levels."
+    )
+
+    if fee_matches or scam_match or (free_mail_detected and mnc_mentioned):
+        insight_forensic = (
+            f"5. SafeHire Tactical Verdict & Security Check: FRAUD WARNING: This document exhibits severe recruitment scam signatures ({red_flags[0] if red_flags else 'unauthorized fee demand'}). Genuine employers like {extracted_company or 'reputed enterprises'} NEVER charge candidates or dispatch offers from personal webmail accounts. Reject this offer immediately."
+        )
+    else:
+        insight_forensic = (
+            f"5. SafeHire Tactical Verdict & Security Check: ZERO FEE CLEARANCE: Document shows zero upfront monetary demands, registration fees, or coercive forfeiture clauses. "
+            + (f"However, given the salary anomaly (-{abs(gap_percent)}%), cross-verify the appointment letter directly via {extracted_company}'s verified corporate careers portal." if salary_anomaly_detected else f"Document and issuer profile align with verified corporate hiring practices for {extracted_company}.")
+        )
+
+    ai_offer_insights = [insight_gap, insight_bonus, insight_signing, insight_stocks, insight_forensic]
 
     # Balanced final scoring
     if fee_matches or scam_match or (free_mail_detected and mnc_mentioned):
@@ -1851,11 +2026,39 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
         "extracted_details": {
             "company_name": extracted_company or "Unknown Entity",
             "job_title": extracted_title or "Position Not Specified",
+            "location": detected_location,
+            "offer_date": detected_date,
             "emails": found_emails,
             "cin": detected_cin or "Not Found",
             "salary": extracted_salary,
             "char_count": len(clean_text)
         },
+        "compensation": {
+            "base_salary": base_display,
+            "bonus": bonus_display,
+            "signing_bonus": signing_display,
+            "total_stocks": stocks_display,
+            "ctc": ctc_display,
+            "stocks_vesting": stocks_vesting,
+            "annual_base_numeric_lakhs": base_num,
+            "annual_ctc_numeric_lakhs": ctc_num,
+            "raw_extracted": extracted_salary
+        },
+        "market_benchmark": {
+            "benchmark_role": bench['title'],
+            "median_base_lakhs": bench['median_base'],
+            "median_ctc_lakhs": bench['median_ctc'],
+            "median_bonus_lakhs": bench['median_bonus'],
+            "median_base_display": f"Rs. {bench['median_base']:.1f} Lakhs",
+            "median_ctc_display": f"Rs. {bench['median_ctc']:.1f} Lakhs",
+            "median_bonus_display": f"Rs. {bench['median_bonus']:.1f} Lakhs",
+            "salary_gap_percent": gap_percent,
+            "is_below_market": is_below_market,
+            "salary_anomaly_detected": salary_anomaly_detected,
+            "anomaly_severity": anomaly_severity,
+            "anomaly_reason": anomaly_reason
+        },
+        "ai_offer_insights": ai_offer_insights,
         "red_flags": red_flags,
         "green_flags": green_flags,
         "recommendations": recommendations,
@@ -2601,6 +2804,8 @@ def scan_offer_letter():
             "extracted_details": {
                 "company_name": meta_info.get('title') or "Issuer in Scanned Image",
                 "job_title": role_from_fn or "Position in Scanned Image",
+                "location": "Not Detectable in Scanned Photo",
+                "offer_date": datetime.now().strftime("%b %d, %Y"),
                 "emails": [],
                 "cin": "Not Detectable in Image Layer",
                 "salary": "Not Detectable in Image Layer",
@@ -2610,6 +2815,38 @@ def scan_offer_letter():
                 "producer": meta_info.get('producer') or ("Photo / Screenshot" if is_image_file else "Raster PDF Export"),
                 "image_dimensions": meta_info.get('image_dimensions') or ("Photo Graphic" if is_image_file else "")
             },
+            "compensation": {
+                "base_salary": "Undetected in Image",
+                "bonus": "Rs. 0",
+                "signing_bonus": "Rs. 0",
+                "total_stocks": "Rs. 0",
+                "ctc": "Undetected in Image",
+                "stocks_vesting": "N/A",
+                "annual_base_numeric_lakhs": 0.0,
+                "annual_ctc_numeric_lakhs": 0.0,
+                "raw_extracted": "None"
+            },
+            "market_benchmark": {
+                "benchmark_role": "Unspecified / Scanned Graphic",
+                "median_base_lakhs": 8.0,
+                "median_ctc_lakhs": 10.0,
+                "median_bonus_lakhs": 0.8,
+                "median_base_display": "Rs. 8.0 Lakhs",
+                "median_ctc_display": "Rs. 10.0 Lakhs",
+                "median_bonus_display": "Rs. 0.8 Lakhs",
+                "salary_gap_percent": 0,
+                "is_below_market": False,
+                "salary_anomaly_detected": False,
+                "anomaly_severity": "NORMAL",
+                "anomaly_reason": "Scanned raster image lacks machine-readable digital typography."
+            },
+            "ai_offer_insights": [
+                "1. Document Integrity: Image/camera screenshot format detected without digital vector text layer.",
+                "2. Salary & Compensation: Financial figures are obscured inside non-selectable image pixels.",
+                "3. Hiring Protocol: Authentic employers (L&T, TCS, Zoho, Infosys) deliver digitally certified PDFs via applicant tracking portals.",
+                "4. Anomaly Warning: Scammers frequently distribute image-only offer letters on WhatsApp/Telegram to bypass automated fraud detection.",
+                "5. Tactical Action: Do not transfer any security deposit, kit charge, or laptop insurance fees."
+            ],
             "red_flags": forensic_red_flags,
             "green_flags": [
                 f"Valid image container verified ({image_meta.get('format', 'Image')}, {image_meta.get('width', 0)}x{image_meta.get('height', 0)} px, {file_size_kb} KB)." if is_image_file else f"Valid PDF container structure verified ({meta_info.get('page_count', 1)} page(s), {file_size_kb} KB)."

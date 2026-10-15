@@ -148,6 +148,33 @@ export interface AnalyticsData {
   recent_predictions: RecentPrediction[];
 }
 
+export interface CompensationBreakdown {
+  base_salary: string;
+  bonus: string;
+  signing_bonus: string;
+  total_stocks: string;
+  ctc: string;
+  stocks_vesting: string;
+  annual_base_numeric_lakhs?: number;
+  annual_ctc_numeric_lakhs?: number;
+  raw_extracted?: string;
+}
+
+export interface MarketSalaryBenchmark {
+  benchmark_role: string;
+  median_base_lakhs: number;
+  median_ctc_lakhs: number;
+  median_bonus_lakhs: number;
+  median_base_display: string;
+  median_ctc_display: string;
+  median_bonus_display: string;
+  salary_gap_percent: number;
+  is_below_market: boolean;
+  salary_anomaly_detected: boolean;
+  anomaly_severity: 'CRITICAL' | 'MODERATE' | 'NORMAL';
+  anomaly_reason: string;
+}
+
 export interface OfferScanResponse {
   verdict: 'GENUINE' | 'SUSPICIOUS' | 'HIGH_RISK_FRAUD' | 'SCANNED_DOCUMENT_REVIEW';
   binary_verdict?: 'REAL' | 'FAKE';
@@ -165,6 +192,8 @@ export interface OfferScanResponse {
   extracted_details: {
     company_name: string;
     job_title: string;
+    location?: string;
+    offer_date?: string;
     emails: string[];
     cin: string;
     salary: string;
@@ -174,6 +203,9 @@ export interface OfferScanResponse {
     producer?: string;
     image_dimensions?: string;
   };
+  compensation?: CompensationBreakdown;
+  market_benchmark?: MarketSalaryBenchmark;
+  ai_offer_insights?: string[];
   red_flags: string[];
   green_flags: string[];
   recommendations: string[];

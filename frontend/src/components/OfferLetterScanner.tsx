@@ -552,6 +552,226 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                   </div>
                 </div>
 
+                {/* 6figr-Style Offer & Compensation Intelligence Architecture */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Left Column: Offer Details, Compensation Breakdown & Market Benchmarking (5 cols) */}
+                  <div className="lg:col-span-5 space-y-6">
+                    {/* Compensation Structure Card */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden space-y-5">
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4">
+                        <div>
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400">
+                            Offer Summary
+                          </span>
+                          <h3 className="text-xl font-black text-white mt-0.5">
+                            {result.extracted_details.job_title || 'Offered Position'}
+                          </h3>
+                          <div className="text-sm font-semibold text-slate-300 mt-1 flex items-center gap-1.5">
+                            <svg className="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                            <span className="truncate">{result.extracted_details.company_name || 'Employer Entity'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-[11px] font-medium text-slate-300 flex items-center gap-1">
+                            <svg className="w-3 h-3 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            <span>{result.extracted_details.location || 'Chennai / India'}</span>
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
+                            <svg className="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                              <line x1="16" y1="2" x2="16" y2="6"/>
+                              <line x1="8" y1="2" x2="8" y2="6"/>
+                              <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            <span>{result.extracted_details.offer_date || (result.scanned_at ? new Date(result.scanned_at).toLocaleDateString() : 'Recent')}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Structured Compensation Breakdown */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
+                          <span>Compensation Breakdown</span>
+                          <span className="text-[10px] text-cyan-400 font-mono">INR Currency</span>
+                        </div>
+
+                        <div className="space-y-2 bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5">
+                          <div className="flex items-center justify-between py-1 border-b border-slate-800/60 text-xs">
+                            <span className="text-slate-400">Base Salary</span>
+                            <span className="font-bold text-slate-200">
+                              {result.compensation?.base_salary || result.extracted_details.salary || 'Not Specified'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between py-1 border-b border-slate-800/60 text-xs">
+                            <span className="text-slate-400">Performance Bonus</span>
+                            <span className="font-bold text-slate-200">
+                              {result.compensation?.bonus || 'Rs. 0'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between py-1 border-b border-slate-800/60 text-xs">
+                            <span className="text-slate-400">Signing / Joining Bonus</span>
+                            <span className="font-bold text-slate-200">
+                              {result.compensation?.signing_bonus || 'Rs. 0'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between py-1 border-b border-slate-800/60 text-xs">
+                            <span className="text-slate-400">Total Stocks / Equity</span>
+                            <span className="font-bold text-slate-200">
+                              {result.compensation?.total_stocks || 'Rs. 0'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between py-1 border-b border-slate-800/60 text-xs">
+                            <span className="text-slate-400">Stocks Vesting</span>
+                            <span className="font-mono text-slate-300">
+                              {result.compensation?.stocks_vesting || 'N/A'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 text-sm font-black">
+                            <span className="text-cyan-300">Total CTC (Cost to Company)</span>
+                            <span className="text-base text-emerald-400">
+                              {result.compensation?.ctc || result.extracted_details.salary || 'Not Specified'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Market Benchmark & Salary Anomaly Card */}
+                    {result.market_benchmark && (
+                      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="20" x2="18" y2="10"/>
+                                <line x1="12" y1="20" x2="12" y2="4"/>
+                                <line x1="6" y1="20" x2="6" y2="14"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">Market Salary Benchmark</h4>
+                              <p className="text-[11px] text-slate-400">{result.market_benchmark.benchmark_role}</p>
+                            </div>
+                          </div>
+
+                          <span className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                            result.market_benchmark.is_below_market
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}>
+                            {result.market_benchmark.salary_gap_percent !== 0
+                              ? `${result.market_benchmark.salary_gap_percent}% vs Market`
+                              : 'Market Baseline'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3">
+                            <div className="text-[11px] text-slate-400">Market Median Base</div>
+                            <div className="text-sm font-bold text-slate-100 mt-0.5">
+                              {result.market_benchmark.median_base_display}
+                            </div>
+                          </div>
+                          <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3">
+                            <div className="text-[11px] text-slate-400">Market Median CTC</div>
+                            <div className="text-sm font-bold text-slate-100 mt-0.5">
+                              {result.market_benchmark.median_ctc_display}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Severe Anomaly Callout */}
+                        {result.market_benchmark.salary_anomaly_detected && (
+                          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 space-y-1">
+                            <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                              <svg className="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                              </svg>
+                              <span>{result.market_benchmark.anomaly_severity === 'CRITICAL' ? 'Severe Lowball / Anomaly Alert' : 'Market Gap Advisory'}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                              {result.market_benchmark.anomaly_reason}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Numbered AI Offer Analysis & Negotiation Intelligence (7 cols) */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                              OfferRAise Engine
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">Offer Analysis AI</span>
+                          </div>
+                          <h3 className="text-lg sm:text-xl font-black text-white">
+                            AI Offer Analysis & Intelligence
+                          </h3>
+                        </div>
+
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 shrink-0">
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* Numbered Insights List */}
+                      <div className="space-y-3.5">
+                        {(result.ai_offer_insights && result.ai_offer_insights.length > 0 ? result.ai_offer_insights : [
+                          `1. Salary Gap: Base salary of ${result.compensation?.base_salary || result.extracted_details.salary || 'Not Specified'} evaluated against industry market compensation standards.`,
+                          `2. Performance Bonus: ${result.compensation?.bonus || 'Rs. 0'} variable pay specified for performance milestone achievement.`,
+                          `3. Signing Bonus: ${result.compensation?.signing_bonus || 'Rs. 0'} sign-on relocation incentive.`,
+                          `4. Total Stocks & Equity: ${result.compensation?.total_stocks || 'Rs. 0'} equity allocation with standard vesting.`,
+                          `5. SafeHire Tactical Verdict: Document analyzed for predatory financial demands, corporate domain validation, and MCA registration.`
+                        ]).map((insight, idx) => {
+                          const match = insight.match(/^([0-9]+\.\s*[^:]+:)\s*(.*)$/);
+                          const title = match ? match[1] : `${idx + 1}. Insight:`;
+                          const body = match ? match[2] : insight;
+
+                          return (
+                            <div
+                              key={idx}
+                              className="p-4 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1.5 transition-all hover:border-slate-700/80"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-black shrink-0">
+                                  {idx + 1}
+                                </div>
+                                <h5 className="text-xs font-bold text-slate-200">
+                                  {title.replace(/^[0-9]+\.\s*/, '')}
+                                </h5>
+                              </div>
+                              <p className="text-xs text-slate-300 leading-relaxed pl-8">
+                                {body}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Top Forensic Analysis Banner */}
                 <div
                   className={`rounded-2xl p-6 sm:p-8 border shadow-2xl relative overflow-hidden ${
