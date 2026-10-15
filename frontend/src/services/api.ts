@@ -193,10 +193,35 @@ export interface JobMatchAnalysis {
   missing_count: number;
 }
 
+export interface RoleMatchAnalysis {
+  target_role: string;
+  role_match_score: number;
+  role_fit_label: string;
+  matched_role_skills: string[];
+  missing_role_skills: string[];
+  role_recommendations: string[];
+  key_points_to_add: string[];
+}
+
+export interface CompanyMatchAnalysis {
+  target_company: string;
+  company_match_score: number;
+  shortlist_probability: 'HIGH' | 'MODERATE' | 'LOW' | string;
+  shortlist_label: string;
+  company_focus: string;
+  culture_fit_notes: string[];
+  shortlisting_key_points: string[];
+}
+
 export interface ResumeScoreResponse {
   overall_score: number;
   grade: string;
+  readiness_status: 'READY' | 'NEEDS_IMPROVEMENT';
+  readiness_verdict: string;
   job_match?: JobMatchAnalysis;
+  role_match?: RoleMatchAnalysis;
+  company_match?: CompanyMatchAnalysis;
+  key_points_to_shortlist?: string[];
   word_count: number;
   metrics_count: number;
   action_verbs_count: number;
@@ -220,6 +245,7 @@ export interface ResumeScoreResponse {
     phone: string;
   };
   target_role?: string;
+  target_company?: string;
   filename?: string;
   scanned_at?: string;
 }
@@ -287,15 +313,28 @@ export const scanOfferLetter = async (input: File | string, ocrText?: string): P
   }
 };
 
-export const scoreResume = async (input: File | string, targetRole: string = '', jobDescription: string = ''): Promise<ResumeScoreResponse> => {
+export const scoreResume = async (
+  input: File | string,
+  targetRole: string = '',
+  targetCompany: string = '',
+  jobDescription: string = ''
+): Promise<ResumeScoreResponse> => {
   if (typeof input === 'string') {
-    const response = await api.post('/api/score-resume', { text: input, target_role: targetRole, job_description: jobDescription });
+    const response = await api.post('/api/score-resume', {
+      text: input,
+      target_role: targetRole,
+      target_company: targetCompany,
+      job_description: jobDescription
+    });
     return response.data;
   } else {
     const formData = new FormData();
     formData.append('file', input);
     if (targetRole) {
       formData.append('target_role', targetRole);
+    }
+    if (targetCompany) {
+      formData.append('target_company', targetCompany);
     }
     if (jobDescription) {
       formData.append('job_description', jobDescription);

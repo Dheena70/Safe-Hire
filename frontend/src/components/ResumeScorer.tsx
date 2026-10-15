@@ -8,12 +8,40 @@ interface Props {
 export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [targetRole, setTargetRole] = useState<string>('');
+  const [targetCompany, setTargetCompany] = useState<string>('');
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResumeScoreResponse | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const POPULAR_ROLES = [
+    'Java Full Stack Developer',
+    'Python Developer',
+    'Frontend React',
+    'Backend Engineer',
+    'Data Scientist',
+    'DevOps Engineer'
+  ];
+
+  const POPULAR_COMPANIES = [
+    'Zoho',
+    'TCS',
+    'Infosys',
+    'Wipro',
+    'Cognizant',
+    'Amazon',
+    'Google',
+    'L&T'
+  ];
+
+  const handleCopyPoint = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2500);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -55,7 +83,7 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
 
     setLoading(true);
     try {
-      const res = await scoreResume(selectedFile, targetRole);
+      const res = await scoreResume(selectedFile, targetRole.trim(), targetCompany.trim());
       setResult(res);
     } catch (err: any) {
       setError(describeApiError(err));
@@ -68,7 +96,9 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
     setResult(null);
     setSelectedFile(null);
     setTargetRole('');
+    setTargetCompany('');
     setError(null);
+    setCopiedIdx(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -128,21 +158,93 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
             </div>
           )}
 
-          {/* Target Role Field */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Target Job Role (Optional)
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={targetRole}
-                onChange={(e) => setTargetRole(e.target.value)}
-                placeholder="e.g. Data Quality Analyst, Full Stack Developer, Machine Learning Engineer"
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-              <div className="absolute right-3 top-3 text-xs text-slate-500">
-                Helps tailor role-specific keywords
+          {/* Dual Target Selection: Role & Company */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Target Role Field */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Target Job Role (Optional)
+                </label>
+                {targetRole && (
+                  <button
+                    type="button"
+                    onClick={() => setTargetRole('')}
+                    className="text-[11px] text-slate-500 hover:text-slate-300"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={targetRole}
+                  onChange={(e) => setTargetRole(e.target.value)}
+                  placeholder="e.g. Java Full Stack Developer"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[11px] text-slate-500 mr-1">Popular:</span>
+                {POPULAR_ROLES.map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setTargetRole(role)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                      targetRole.toLowerCase() === role.toLowerCase()
+                        ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
+                        : 'bg-slate-950/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                    }`}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target Company Field */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Target Hiring Company (Optional)
+                </label>
+                {targetCompany && (
+                  <button
+                    type="button"
+                    onClick={() => setTargetCompany('')}
+                    className="text-[11px] text-slate-500 hover:text-slate-300"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={targetCompany}
+                  onChange={(e) => setTargetCompany(e.target.value)}
+                  placeholder="e.g. Zoho, TCS, Infosys, Amazon"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all font-medium"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[11px] text-slate-500 mr-1">Top MNCs:</span>
+                {POPULAR_COMPANIES.map((co) => (
+                  <button
+                    key={co}
+                    type="button"
+                    onClick={() => setTargetCompany(co)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                      targetCompany.toLowerCase() === co.toLowerCase()
+                        ? 'bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30'
+                        : 'bg-slate-950/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                    }`}
+                  >
+                    {co}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -247,18 +349,83 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
       ) : (
         /* Results View */
         <div className="space-y-6 animate-fadeIn">
+          {/* 100% Decisive Binary Verdict Banner (OK vs NOT READY) */}
+          {(() => {
+            const isReady = result.readiness_status === 'READY' || result.overall_score >= 70;
+            return (
+              <div
+                className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xl transition-all ${
+                  isReady
+                    ? 'bg-gradient-to-r from-emerald-950/90 via-slate-900 to-emerald-950/60 border-emerald-500/60 text-emerald-200 shadow-emerald-950/50'
+                    : 'bg-gradient-to-r from-amber-950/95 via-slate-900 to-rose-950/70 border-amber-500/60 text-amber-200 shadow-amber-950/50'
+                }`}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${
+                      isReady ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500 text-slate-950'
+                    }`}
+                  >
+                    {isReady ? (
+                      <svg className="w-7 h-7 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                      </svg>
+                    ) : (
+                      <svg className="w-7 h-7 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-extrabold uppercase tracking-widest opacity-80">
+                      Application Readiness Verdict
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                      {isReady ? 'RESUME STATUS: OK (READY TO APPLY)' : 'RESUME STATUS: NOT READY (ADD SUGGESTED SECTIONS)'}
+                    </h3>
+                    <p className="text-xs text-slate-300 max-w-xl pt-0.5">
+                      {isReady
+                        ? 'Your resume possesses competitive ATS formatting, quantifiable metrics, and section depth required to pass automated recruiter screeners.'
+                        : 'Your resume lacks critical standard sections or quantified metrics. ATS parsers will likely filter this out before human review. Follow the action plan below.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                  <span
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-md ${
+                      isReady
+                        ? 'bg-emerald-500 text-slate-950'
+                        : 'bg-amber-500 text-slate-950 animate-pulse'
+                    }`}
+                  >
+                    {isReady ? 'APPROVED / READY' : 'ACTION REQUIRED'}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Top Score Banner */}
           <div className="rounded-2xl p-6 sm:p-8 border shadow-2xl relative overflow-hidden bg-gradient-to-br from-indigo-950/70 via-slate-900 to-slate-950 border-indigo-500/40 shadow-indigo-950/30">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-block w-3 h-3 rounded-full bg-indigo-400 animate-pulse" />
                   <span className="text-xs font-bold tracking-wider uppercase text-slate-400">
                     ATS Audit Verdict
                   </span>
                   {result.target_role && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                      Target: {result.target_role}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      Role: {result.target_role}
+                    </span>
+                  )}
+                  {result.target_company && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      Company: {result.target_company}
                     </span>
                   )}
                 </div>
@@ -311,6 +478,190 @@ export const ResumeScorer: React.FC<Props> = ({ onSwitchToOfferScan }) => {
               </div>
             </div>
           </div>
+
+          {/* Target Company Recruiter Shortlisting Card */}
+          {result.company_match && (
+            <div className="bg-gradient-to-br from-cyan-950/60 via-slate-900 to-slate-950 border border-cyan-500/40 rounded-2xl p-6 shadow-xl space-y-4 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-black text-sm">
+                    {result.company_match.target_company.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                      Company Recruiter Shortlisting Audit
+                    </div>
+                    <h4 className="text-lg font-black text-white">
+                      {result.company_match.target_company} Evaluation
+                    </h4>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3.5 py-1.5 rounded-xl text-xs font-black border ${
+                    result.company_match.shortlist_probability === 'HIGH'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      : result.company_match.shortlist_probability === 'MODERATE'
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  }`}>
+                    SHORTLIST CHANCE: {result.company_match.shortlist_probability} ({result.company_match.company_match_score}%)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-1.5">
+                <div className="text-xs font-bold text-slate-300">
+                  Engineering Focus at {result.company_match.target_company}:
+                </div>
+                <p className="text-xs text-cyan-200/90 leading-relaxed">
+                  {result.company_match.company_focus}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Hiring Culture & Recruiter Expectations:
+                </div>
+                <ul className="space-y-1.5">
+                  {result.company_match.culture_fit_notes.map((note, idx) => (
+                    <li key={idx} className="text-xs text-slate-300 flex items-start gap-2.5">
+                      <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      <span className="leading-relaxed">{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Target Role Tech Stack & Gap Analysis */}
+          {result.role_match && (
+            <div className="bg-slate-900/80 border border-indigo-500/30 rounded-2xl p-6 shadow-xl space-y-5 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="16 18 22 12 16 6"/>
+                      <polyline points="8 6 2 12 8 18"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">
+                      Target Role Technical Alignment
+                    </div>
+                    <h4 className="text-base font-black text-white">
+                      {result.role_match.target_role} Match
+                    </h4>
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Role Fit: {result.role_match.role_match_score}%
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Matched Skills */}
+                <div className="p-4 bg-slate-950/70 border border-emerald-500/20 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+                    <span>Matched Role Skills ({result.role_match.matched_role_skills.length})</span>
+                    <span className="text-[10px] text-emerald-300 font-semibold">Found in Resume</span>
+                  </div>
+                  {result.role_match.matched_role_skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {result.role_match.matched_role_skills.map((s, idx) => (
+                        <span key={idx} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-950/40 border border-emerald-800/60 text-emerald-300">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No specific role keywords detected in resume.</p>
+                  )}
+                </div>
+
+                {/* Missing Skills */}
+                <div className="p-4 bg-slate-950/70 border border-rose-500/20 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-rose-400">
+                    <span>Missing Skills for Role ({result.role_match.missing_role_skills.length})</span>
+                    <span className="text-[10px] text-rose-300 font-semibold">Add to Qualify</span>
+                  </div>
+                  {result.role_match.missing_role_skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {result.role_match.missing_role_skills.map((s, idx) => (
+                        <span key={idx} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/40 border border-rose-800/60 text-rose-300">
+                          + Add {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-emerald-400 font-semibold">All core skills for this role are covered!</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Role recommendations */}
+              {result.role_match.role_recommendations && result.role_match.role_recommendations.length > 0 && (
+                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
+                  <div className="text-xs font-bold text-slate-300">Role Optimization Advice:</div>
+                  <ul className="space-y-1 text-xs text-slate-400 pl-4 list-disc">
+                    {result.role_match.role_recommendations.map((rec, idx) => (
+                      <li key={idx} className="leading-relaxed">{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* High-Converting Shortlisting Key Points to Add */}
+          {result.key_points_to_shortlist && result.key_points_to_shortlist.length > 0 && (
+            <div className="bg-slate-900/80 border border-emerald-500/30 rounded-2xl p-6 shadow-xl space-y-4 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span>High-Impact Key Points to Shortlist Your Resume</span>
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Recruiters and automated ATS scanners look for these exact high-converting bullet points. Click to copy and paste them into your resume experience or project sections:
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {result.key_points_to_shortlist.map((point, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex items-start justify-between gap-3 group hover:border-emerald-500/40 transition"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <p className="text-xs text-slate-200 leading-relaxed font-mono">
+                        {point}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPoint(point, idx)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition ${
+                        copiedIdx === idx
+                          ? 'bg-emerald-500 text-slate-950 font-black'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      {copiedIdx === idx ? 'Copied' : 'Copy Point'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Privacy & Anti-Scam Shield Alert */}
           {result.privacy_alerts && result.privacy_alerts.length > 0 ? (

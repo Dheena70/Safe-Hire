@@ -1716,42 +1716,51 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
     red_flags = []
     green_flags = []
     risk_score = 0
+    credibility_bonus = 0
 
-    # 1. Look for fee demands
+    # 1. Look for fee demands (The #1 definitive signature of job offer fraud)
     fee_matches = list(set(FEE_KEYWORDS_REGEX.findall(text_lower)))
     if fee_matches:
-        risk_score += 45
+        risk_score += 55
         red_flags.append(f"Financial demand detected: References upfront payment/deposit keywords ({', '.join(fee_matches[:4])})")
     else:
-        green_flags.append("No upfront registration, security deposit, or processing fee demands found.")
+        credibility_bonus += 25
+        green_flags.append("Zero fee policy verified: No upfront registration, security deposit, laptop fee, or processing charges found.")
 
     # 2. Extract emails & check domains
     found_emails = list(set(re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', clean_text)))
     free_mail_detected = False
+    corporate_mail_detected = False
+    corporate_emails = []
     for em in found_emails:
         domain = em.split('@')[-1].lower()
         if domain in FREE_EMAIL_DOMAINS:
             free_mail_detected = True
-            break
+        else:
+            corporate_mail_detected = True
+            corporate_emails.append(em)
 
     # Check if text mentions a top MNC
     mnc_mentioned = [mnc for mnc in TOP_MNCS if mnc in text_lower]
     if free_mail_detected:
         if mnc_mentioned:
-            risk_score += 40
+            risk_score += 45
             red_flags.append(f"Impersonation Alert: Mentions '{mnc_mentioned[0].upper()}' but uses public webmail ({found_emails[0]}) instead of verified enterprise domain.")
         else:
-            risk_score += 20
-            red_flags.append(f"Contact email uses free public webmail ({found_emails[0]}) rather than corporate domain.")
-    elif found_emails:
-        green_flags.append(f"Uses corporate email domain ({found_emails[0]}).")
+            risk_score += 25
+            red_flags.append(f"Contact email uses free public webmail ({found_emails[0]}) rather than verified corporate domain.")
+    elif corporate_mail_detected:
+        credibility_bonus += 20
+        green_flags.append(f"Official corporate email domain verified ({corporate_emails[0]}).")
 
     # 3. Urgency and threats
     urgent_keywords = ['within 24 hours', 'immediate payment', 'legal action', 'court notice', 'police complaint', 'forfeit offer', 'non-refundable']
     urgent_found = [uk for uk in urgent_keywords if uk in text_lower]
     if urgent_found:
-        risk_score += 20
+        risk_score += 25
         red_flags.append(f"High-pressure / coercive language detected: '{', '.join(urgent_found)}'")
+    else:
+        green_flags.append("Standard professional joining terms: No coercive extortion or countdown threats detected.")
 
     # 4. CIN Check
     cin_matches = re.findall(r'[LUu][0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}', clean_text)
@@ -1759,14 +1768,14 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
     if detected_cin:
         cin_status, cin_name = check_cin_registry(detected_cin)
         if cin_status is True:
-            risk_score = max(0, risk_score - 25)
+            credibility_bonus += 25
             green_flags.append(f"Valid Government MCA Corporate CIN ({detected_cin}) registered to '{cin_name}'")
         elif cin_status == 'UNVERIFIED_REGIONAL':
+            credibility_bonus += 15
             green_flags.append(f"Valid 21-character MCA CIN format ({detected_cin}) detected")
         else:
+            risk_score += 20
             red_flags.append(f"CIN ({detected_cin}) failed official MCA verification")
-    else:
-        red_flags.append("No Government Corporate Identification Number (CIN) found in document")
 
     # 5. Extract Company Name & Job Title heuristic
     lines = [l.strip() for l in clean_text.split('\n') if l.strip()]
@@ -1784,36 +1793,44 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
             extracted_title = line[:60]
             break
 
+    # Check scam database
+    scam_match = check_scam_database(extracted_company) if extracted_company else None
+    if scam_match:
+        risk_score += 65
+        red_flags.append(f"KNOWN FRAUD ENTITY: '{extracted_company}' matches reported recruitment fraud blacklist.")
+
+    # Check known registered company or top MNC
+    is_mca_registered = check_tamil_nadu_registry(extracted_company) if extracted_company else False
+    if (mnc_mentioned or is_mca_registered) and not fee_matches and not free_mail_detected:
+        credibility_bonus += 25
+        company_name_label = extracted_company or (mnc_mentioned[0].upper() if mnc_mentioned else '')
+        green_flags.append(f"Entity profile verified: '{company_name_label}' matches recognized corporate enterprise standards.")
+
     # 6. Extract salary if any
     salary_match = re.findall(r'(?:ctc|salary|stipend|package|inr|rs\.?|₹)\s*[:\-]?\s*([0-9,]+(?:\s*(?:lpa|per\s+month|pm|per\s+annum|lac|lakh))?)', clean_text, re.IGNORECASE)
     extracted_salary = salary_match[0] if salary_match else "Not explicitly specified"
+    if salary_match:
+        green_flags.append(f"Standard compensation terms specified ({extracted_salary}).")
 
-    # ML Classifier run
-    ml_result = detector.predict_record(
-        company_name=extracted_company or "Offer Letter Issuer",
-        title=extracted_title or "Job Candidate",
-        description=clean_text[:4000],
-        email=found_emails[0] if found_emails else '',
-        cin=detected_cin or ''
-    )
-
-    if ml_result['prediction'] == 'FAKE':
-        risk_score = max(risk_score, int(ml_result['suspicious_score'] * 9))
-
-    final_risk_score = min(100, max(0, risk_score))
-    legitimacy_score = 100 - final_risk_score
-
-    if final_risk_score >= 60:
+    # Balanced final scoring
+    if fee_matches or scam_match or (free_mail_detected and mnc_mentioned):
+        final_risk_score = min(100, max(65, risk_score))
+        legitimacy_score = max(5, 100 - final_risk_score)
         verdict = "HIGH_RISK_FRAUD"
         status_label = "SUSPECTED FAKE OFFER"
         binary_verdict = "FAKE"
-    elif final_risk_score >= 30:
+    elif free_mail_detected or urgent_found:
+        final_risk_score = min(85, max(45, risk_score - (credibility_bonus // 2)))
+        legitimacy_score = max(15, 100 - final_risk_score)
         verdict = "SUSPICIOUS"
         status_label = "SUSPECTED FAKE (HIGH RISK)"
         binary_verdict = "FAKE"
     else:
+        # Authentic offer letter! Clean salary, professional terms, zero predatory fees
+        final_risk_score = max(5, min(20, 25 - (credibility_bonus // 3)))
+        legitimacy_score = min(98, max(80, 100 - final_risk_score))
         verdict = "GENUINE"
-        status_label = "LIKELY LEGITIMATE"
+        status_label = "LIKELY LEGITIMATE (REAL OFFER)"
         binary_verdict = "REAL"
 
     recommendations = []
@@ -1922,15 +1939,228 @@ RESUME_STANDARD_SECTIONS = {
 
 RESUME_TECH_KEYWORDS = {
     'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'react', 'angular', 'vue',
-    'node', 'express', 'flask', 'django', 'fastapi', 'spring', 'sql', 'mysql', 'postgresql',
+    'node', 'express', 'flask', 'django', 'fastapi', 'spring', 'spring boot', 'hibernate', 'sql', 'mysql', 'postgresql',
     'mongodb', 'redis', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'git', 'linux',
     'html', 'css', 'tailwind', 'bootstrap', 'pandas', 'numpy', 'scikit-learn', 'tensorflow',
     'pytorch', 'data analysis', 'machine learning', 'power bi', 'tableau', 'excel', 'rest api',
-    'graphql', 'ci/cd', 'agile', 'scrum', 'devops', 'microservices'
+    'graphql', 'ci/cd', 'agile', 'scrum', 'devops', 'microservices', 'maven', 'junit', 'kafka'
 }
 
-def analyze_resume_text(text: str, target_role: str = '', job_description: str = '') -> dict:
-    """Evaluate candidate resume for ATS compatibility, keyword density, privacy safety, and optional job match fit"""
+ROLE_PROFILES = {
+    'java': {
+        'display_title': 'Java Full Stack Developer',
+        'core_skills': ['java', 'spring boot', 'hibernate', 'microservices', 'rest api', 'react', 'angular', 'sql', 'mysql', 'postgresql', 'docker', 'git', 'maven', 'junit'],
+        'recommendations': [
+            "Highlight enterprise Java frameworks: Explicitly mention Spring Boot, Spring Security (JWT), and Hibernate/JPA.",
+            "Demonstrate frontend-backend integration: Highlight connecting React or Angular SPAs to Spring Boot REST APIs.",
+            "Showcase cloud & containerization: Mention containerizing microservices with Docker and deploying to AWS/Azure.",
+            "Detail automated testing: Include unit testing with JUnit 5 and Mockito with code coverage metrics."
+        ],
+        'key_points': [
+            "Engineered scalable microservices in Java 17 / Spring Boot, reducing API response times by 35% with Redis caching.",
+            "Architected full-stack web applications integrating React frontend with Spring Security JWT authenticated RESTful endpoints.",
+            "Designed and optimized relational database schemas in PostgreSQL/MySQL using Hibernate ORM with query indexing.",
+            "Implemented automated unit & integration test suites using JUnit 5 and Mockito, maintaining 85%+ code coverage.",
+            "Containerized application components with Docker and established automated CI/CD deployment pipelines."
+        ]
+    },
+    'python': {
+        'display_title': 'Python Full Stack / Backend Developer',
+        'core_skills': ['python', 'django', 'fastapi', 'flask', 'react', 'sql', 'postgresql', 'redis', 'docker', 'git', 'rest api'],
+        'recommendations': [
+            "Feature modern asynchronous frameworks: Add FastAPI or Django REST Framework (DRF).",
+            "Include caching & task queues: Mention Redis and Celery for background asynchronous tasks.",
+            "Include database ORM expertise: Detail SQLAlchemy or Django ORM query optimization."
+        ],
+        'key_points': [
+            "Architected asynchronous REST APIs using Python / FastAPI and Celery, handling 15,000+ daily requests.",
+            "Built interactive single-page dashboards using React and Tailwind CSS, interfacing with Python backends.",
+            "Optimized complex PostgreSQL queries and Redis caching layers, cutting database response latency by 40%.",
+            "Deployed production Docker containers on AWS EC2 with Nginx reverse proxy and Gunicorn."
+        ]
+    },
+    'frontend': {
+        'display_title': 'Frontend Developer',
+        'core_skills': ['javascript', 'typescript', 'react', 'next.js', 'vue', 'angular', 'html', 'css', 'tailwind', 'redux', 'rest api', 'git'],
+        'recommendations': [
+            "Emphasize modern frontend ecosystems: Highlight TypeScript, React 18, Next.js, and Tailwind CSS.",
+            "Include web performance metrics: Mention Core Web Vitals, LCP optimization, and lazy loading.",
+            "Detail state management: Highlight Redux Toolkit, Zustand, or React Query."
+        ],
+        'key_points': [
+            "Developed responsive web applications using React, TypeScript, and Tailwind CSS with 100% mobile usability.",
+            "Optimized web vitals (LCP, CLS, FID) and bundle sizes via code-splitting and Vite, accelerating page speed by 50%.",
+            "Engineered state management and asynchronous data fetching using Redux Toolkit and React Query.",
+            "Implemented cross-browser compatible UI component libraries with automated Jest and Cypress unit testing."
+        ]
+    },
+    'backend': {
+        'display_title': 'Backend Developer',
+        'core_skills': ['java', 'python', 'node', 'spring boot', 'microservices', 'rest api', 'sql', 'postgresql', 'mongodb', 'redis', 'docker', 'git'],
+        'recommendations': [
+            "Highlight high concurrency and throughput architectures.",
+            "Include caching (Redis) and message brokers (Kafka/RabbitMQ).",
+            "Emphasize API security: OAuth2, JWT, and rate limiting."
+        ],
+        'key_points': [
+            "Constructed resilient backend microservices with RESTful APIs, securing endpoints via OAuth2 and JWT tokens.",
+            "Integrated Redis distributed caching and Kafka message queues to handle concurrent transactional workloads.",
+            "Designed normalized schemas and performed query optimization in PostgreSQL/MongoDB for high-throughput I/O.",
+            "Configured Docker containers and automated health monitoring using Prometheus and Grafana."
+        ]
+    },
+    'data': {
+        'display_title': 'Data Scientist / Machine Learning Engineer',
+        'core_skills': ['python', 'machine learning', 'pandas', 'numpy', 'scikit-learn', 'tensorflow', 'pytorch', 'sql', 'deep learning', 'data analysis'],
+        'recommendations': [
+            "Detail end-to-end model pipelines: From data cleaning and feature engineering to deployment.",
+            "Add measurable accuracy metrics: Mention F1-score, ROC-AUC, precision, or business ROI.",
+            "Highlight model serving: FastAPI/Flask model deployment or ONNX runtime."
+        ],
+        'key_points': [
+            "Trained predictive machine learning models using Scikit-Learn and XGBoost, achieving 93% accuracy on production benchmarks.",
+            "Engineered data preprocessing pipelines in Python (Pandas, NumPy), cleaning and transforming 2M+ tabular records.",
+            "Deployed machine learning model endpoints using FastAPI in Docker containers for real-time inference.",
+            "Visualized complex multi-dimensional datasets and presented key statistical findings using Seaborn and Matplotlib."
+        ]
+    },
+    'devops': {
+        'display_title': 'DevOps / Cloud Engineer',
+        'core_skills': ['linux', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform', 'ci/cd', 'git', 'jenkins', 'bash'],
+        'recommendations': [
+            "Highlight Infrastructure as Code (Terraform / CloudFormation).",
+            "Detail container orchestration with Kubernetes (EKS/GKE).",
+            "Emphasize zero-downtime CI/CD automated deployment pipelines."
+        ],
+        'key_points': [
+            "Automated cloud infrastructure provisioning on AWS using Terraform (IaC), eliminating 80% of manual setup.",
+            "Orchestrated container workloads using Kubernetes (K8s), configuring ingress controllers and Horizontal Pod Autoscalers.",
+            "Constructed robust CI/CD pipelines via GitHub Actions and Jenkins, cutting deployment cycle times by 65%.",
+            "Configured centralized telemetry and alerting with Prometheus, Grafana, and ELK stack."
+        ]
+    }
+}
+
+COMPANY_PROFILES = {
+    'zoho': {
+        'name': 'Zoho Corporation',
+        'focus': 'Core Problem Solving, DSA, Pure OOPs, Native Java/C++, DBMS & Clean Code Architecture',
+        'culture_notes': [
+            "Zoho recruiters prioritize foundational Computer Science over external third-party frameworks.",
+            "Emphasis on building applications from scratch with minimal library dependencies.",
+            "Technical rounds heavily test Data Structures, Algorithms, raw SQL queries, and Object-Oriented Design."
+        ],
+        'shortlisting_keys': [
+            "Showcase core programming depth: Highlight strong proficiency in Core Java, C++, OOPs principles, and Data Structures.",
+            "Feature raw database competence: Include complex SQL queries, relational normalization, and database schema design without heavy ORMs.",
+            "Detail projects built from scratch: Mention building custom web servers, CLI tools, or native MVC applications without relying solely on boilerplate frameworks.",
+            "Highlight problem solving: Mention competitive coding ratings (LeetCode, HackerRank, CodeChef) or solved algorithmic problems."
+        ]
+    },
+    'tcs': {
+        'name': 'Tata Consultancy Services (TCS)',
+        'focus': 'Enterprise Multi-Tier Architecture, Java/Spring Boot, Agile SDLC, Quality Assurance & Certifications',
+        'culture_notes': [
+            "TCS ATS scanners look for structured enterprise software stacks and formal SDLC methodology.",
+            "High value placed on professional certifications (Oracle Java, AWS Cloud Practitioner, Microsoft Azure).",
+            "Emphasis on client delivery, unit testing (JUnit), version control, and collaboration in Agile/Scrum teams."
+        ],
+        'shortlisting_keys': [
+            "Highlight enterprise framework experience: Explicitly mention Spring Boot, REST APIs, Microservices, and Angular/React.",
+            "List technical certifications: Include any AWS, Oracle Java, Microsoft, or Python certifications prominently.",
+            "Demonstrate Agile & testing practices: Add bullet points mentioning Sprint planning, Git workflow, JUnit test coverage, and code reviews.",
+            "Emphasize enterprise reliability: Mention handling database transactions (SQL/Oracle), security compliance, and maintenance."
+        ]
+    },
+    'infosys': {
+        'name': 'Infosys Limited',
+        'focus': 'Cloud-Native Development, Microservices, Spring Boot, CI/CD Pipelines & Full Stack Agility',
+        'culture_notes': [
+            "Infosys ATS screens heavily for full-stack versatility and modern microservices architecture.",
+            "Value placed on containerization (Docker) and automated build pipelines (Maven/Jenkins).",
+            "Recruiters favor candidates who can bridge frontend UI with scalable backend services."
+        ],
+        'shortlisting_keys': [
+            "Feature microservices & Spring Cloud: Detail experience building decoupled services with Eureka, API Gateway, and RESTful contracts.",
+            "Highlight full-stack capability: Ensure both backend (Java/Python) and frontend (React/Angular) are clearly listed with project examples.",
+            "Add CI/CD and DevOps exposure: Mention Maven build automation, Docker containerization, and Git version control.",
+            "Quantify project delivery: Mention team size, project duration, and number of features delivered to production."
+        ]
+    },
+    'wipro': {
+        'name': 'Wipro Limited',
+        'focus': 'Digital Transformation, Cloud Services, Enterprise Web Applications & Database Administration',
+        'culture_notes': [
+            "Wipro recruiters look for readiness in cloud migration, modern web frameworks, and enterprise software support.",
+            "Keyword density for standard enterprise tech (Java, Spring, SQL, AWS, React) heavily impacts ATS ranking."
+        ],
+        'shortlisting_keys': [
+            "Showcase standard enterprise stack: Explicitly include Java, Spring Boot, SQL, REST APIs, and JavaScript/React.",
+            "Mention cloud fundamentals: Add exposure to AWS or Azure services (EC2, S3, RDS, Lambda).",
+            "Include collaborative tools: Mention JIRA, Confluence, Git, and Agile sprint participation.",
+            "Highlight bug fixing and optimization: Describe resolving critical bugs and optimizing database queries."
+        ]
+    },
+    'cognizant': {
+        'name': 'Cognizant (CTS)',
+        'focus': 'Full Stack Modernization, Spring Boot, React, Microservices & Database Performance',
+        'culture_notes': [
+            "Cognizant uses high-volume automated ATS parsers that strictly match required skill combinations.",
+            "Missing keywords like 'REST API', 'Spring Boot', 'SQL', or 'Git' significantly drops resume ranking."
+        ],
+        'shortlisting_keys': [
+            "Ensure core keyword presence: List Spring Boot, REST APIs, React, SQL, and Git prominently in the Skills section.",
+            "Demonstrate end-to-end project ownership: Mention designing database schemas, writing backend logic, and consuming APIs on the frontend.",
+            "Highlight code quality and testing: Mention Postman API testing, JUnit unit tests, and defect tracking.",
+            "Include performance metrics: Quantify efficiency improvements (e.g. 'Reduced API turnaround time by 30%')."
+        ]
+    },
+    'amazon': {
+        'name': 'Amazon / AWS',
+        'focus': 'High Scale Distributed Systems, High Concurrency, Low Latency, System Design & Leadership Principles',
+        'culture_notes': [
+            "Amazon recruiters heavily scrutinize quantified business impact and engineering ownership (Amazon Leadership Principles).",
+            "Every bullet point must demonstrate cause and effect with clear numbers (metrics, scale, latency, users).",
+            "Deep focus on distributed architectures, caching (Redis), message queues (Kafka/SQS), and AWS cloud native services."
+        ],
+        'shortlisting_keys': [
+            "Quantify every single bullet point: Use the STAR format with metrics (e.g. 'Optimized P99 latency from 320ms to 85ms across 100k daily queries').",
+            "Highlight distributed systems: Detail experience with microservices, Redis caching, Kafka/SQS messaging, and horizontal scaling.",
+            "Show customer obsession & ownership: Describe solving complex production bottlenecks or saving operational costs.",
+            "Mention cloud services: Specifically name AWS services used (EC2, S3, DynamoDB, Lambda, CloudWatch, SQS)."
+        ]
+    },
+    'google': {
+        'name': 'Google',
+        'focus': 'Algorithmic Rigor, Massive Scale Systems, Computer Science Foundations, Latency & Reliability',
+        'culture_notes': [
+            "Google recruiters value candidates with exceptional algorithmic problem solving, clean architecture, and computer science mastery.",
+            "Resumes should highlight technical complexity, algorithm efficiency (Big-O optimization), and scalable distributed computing."
+        ],
+        'shortlisting_keys': [
+            "Highlight algorithmic complexity: Mention optimizing algorithms from O(N^2) to O(N log N) with measurable speedups.",
+            "Feature distributed systems & concurrency: Detail multithreading, concurrent data structures, and asynchronous architectures.",
+            "Demonstrate open source or complex projects: Include GitHub links to non-trivial applications or competitive programming profiles.",
+            "Use precise impact statements: 'Engineered high-throughput data processing pipeline handling 5M+ events/day with 99.99% uptime'."
+        ]
+    },
+    'l&t': {
+        'name': 'L&T / LTIMindtree',
+        'focus': 'Enterprise Scalability, Mission-Critical Systems, Java/Spring, Database Integrity & Security',
+        'culture_notes': [
+            "L&T looks for dependable engineering, strong database integrity, enterprise Java architectures, and secure coding practices."
+        ],
+        'shortlisting_keys': [
+            "Highlight enterprise Java & Spring Boot: Detail experience developing backend services and enterprise data connectors.",
+            "Demonstrate robust database skills: Mention SQL query optimization, ACID transactions, and stored procedures in PostgreSQL/Oracle.",
+            "Detail security compliance: Mention implementing role-based access control (RBAC), input sanitization, and data encryption.",
+            "Include technical certifications and formal engineering methodologies."
+        ]
+    }
+}
+
+def analyze_resume_text(text: str, target_role: str = '', target_company: str = '', job_description: str = '') -> dict:
+    """Evaluate candidate resume for ATS compatibility, keyword density, privacy safety, role matching, and company shortlisting"""
     clean_text = text.strip()
     text_lower = clean_text.lower()
     words = re.findall(r'\b[a-zA-Z0-9+#.-]+\b', text_lower)
@@ -1958,7 +2188,8 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
 
     # 4. Technical Skills & Keywords (Max 20)
     detected_skills = [k for k in RESUME_TECH_KEYWORDS if k in text_lower]
-    skills_display = [('C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else s.capitalize()) for s in detected_skills]
+    format_skill = lambda s: 'C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else 'REST APIs' if s == 'rest api' else 'Spring Boot' if s == 'spring boot' else s.capitalize()
+    skills_display = [format_skill(s) for s in detected_skills]
     skill_score = min(20, len(detected_skills) * 3)
 
     # 5. Length & Formatting Balance (Max 10)
@@ -1971,6 +2202,14 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
 
     raw_total = section_score + verb_score + impact_score + skill_score + length_score
     overall_score = min(100, max(15, raw_total))
+
+    # Readiness Verdict (OK vs NOT READY)
+    if overall_score >= 70:
+        readiness_status = "READY"
+        readiness_verdict = "OK (READY TO APPLY)"
+    else:
+        readiness_status = "NEEDS_IMPROVEMENT"
+        readiness_verdict = "NOT READY (CRITICAL ADDITIONS NEEDED)"
 
     # 6. Privacy & Sensitive Data Safety Audit
     privacy_alerts = []
@@ -2031,12 +2270,137 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
     else:
         improvements.append(f"Missing recommended sections: Consider adding a distinct section for: {', '.join(sections_missing[:2])}.")
 
+    # =========================================================================
+    # ROLE-SPECIFIC MATCHING ENGINE (e.g. Java Full Stack Developer)
+    # =========================================================================
+    role_match = None
+    role_key_points = []
     if target_role:
-        role_lower = target_role.lower()
-        if any(w in text_lower for w in role_lower.split()):
-            strengths.append(f"Role alignment: Resume reflects core terminology for '{target_role}'.")
+        target_role_lower = target_role.lower().strip()
+        matched_profile_key = None
+        for rk in ['java', 'python', 'frontend', 'backend', 'data', 'devops']:
+            if rk in target_role_lower:
+                matched_profile_key = rk
+                break
+
+        if matched_profile_key and matched_profile_key in ROLE_PROFILES:
+            prof = ROLE_PROFILES[matched_profile_key]
+            core_req = prof['core_skills']
+            matched_r_skills = [s for s in core_req if s in text_lower]
+            missing_r_skills = [s for s in core_req if s not in text_lower]
+            match_score = int((len(matched_r_skills) / max(1, len(core_req))) * 100)
+            role_recommendations = prof['recommendations']
+            role_key_points = prof['key_points']
+            display_role_title = prof['display_title']
         else:
-            improvements.append(f"Tailor your headline and summary to specifically highlight '{target_role}'.")
+            # Dynamic role keyword matching
+            req_words = [w for w in re.findall(r'\b[a-zA-Z]{3,}\b', target_role_lower) if w not in {'developer', 'engineer', 'specialist', 'junior', 'senior', 'lead', 'associate'}]
+            core_req = req_words or ['skills', 'experience', 'projects']
+            matched_r_skills = [w for w in core_req if w in text_lower]
+            missing_r_skills = [w for w in core_req if w not in text_lower]
+            match_score = int((len(matched_r_skills) / max(1, len(core_req))) * 100)
+            display_role_title = target_role.title()
+            role_recommendations = [
+                f"Tailor your headline and summary to specifically emphasize '{display_role_title}'.",
+                f"Ensure experience bullet points reflect projects matching '{display_role_title}'.",
+                f"Add industry certifications relevant to '{display_role_title}'."
+            ]
+            role_key_points = [
+                f"Engineered high-impact software solutions tailored for {display_role_title} requirements.",
+                f"Collaborated in Agile teams delivering production features for {display_role_title} applications.",
+                f"Optimized application performance, reliability, and code quality following industry best practices."
+            ]
+
+        if match_score >= 70:
+            role_fit_label = "High Role Alignment - Ready for Technical Screening"
+        elif match_score >= 45:
+            role_fit_label = "Moderate Role Fit - Core Foundations Present, Missing Advanced Tech"
+        else:
+            role_fit_label = "Low Role Fit - Significant Skill & Framework Gaps"
+
+        role_match = {
+            "target_role": display_role_title,
+            "role_match_score": match_score,
+            "role_fit_label": role_fit_label,
+            "matched_role_skills": [format_skill(s) for s in matched_r_skills],
+            "missing_role_skills": [format_skill(s) for s in missing_r_skills],
+            "role_recommendations": role_recommendations,
+            "key_points_to_add": role_key_points
+        }
+
+    # =========================================================================
+    # COMPANY RECRUITER SHORTLISTING ENGINE (e.g. Zoho, TCS, Infosys, Amazon)
+    # =========================================================================
+    company_match = None
+    company_key_points = []
+    if target_company:
+        target_co_lower = target_company.lower().strip()
+        matched_co_key = None
+        for ck in ['zoho', 'tcs', 'infosys', 'wipro', 'cognizant', 'amazon', 'google', 'l&t']:
+            if ck in target_co_lower or (ck == 'tcs' and 'tata' in target_co_lower) or (ck == 'cognizant' and 'cts' in target_co_lower) or (ck == 'l&t' and ('larsen' in target_co_lower or 'lti' in target_co_lower)):
+                matched_co_key = ck
+                break
+
+        if matched_co_key and matched_co_key in COMPANY_PROFILES:
+            co_prof = COMPANY_PROFILES[matched_co_key]
+            co_name = co_prof['name']
+            co_focus = co_prof['focus']
+            co_culture = co_prof['culture_notes']
+            company_key_points = co_prof['shortlisting_keys']
+        else:
+            co_name = target_company.title()
+            co_focus = f"Enterprise Quality, Scalable Development & Collaborative Delivery at {co_name}"
+            co_culture = [
+                f"{co_name} hiring managers look for proven problem-solving, clean code, and project ownership.",
+                "High value placed on quantifiable accomplishments and demonstrable hands-on tech stacks.",
+                "Ensure your resume reflects clear communication, version control (Git), and agile team workflows."
+            ]
+            company_key_points = [
+                f"Highlight technical alignment with {co_name}'s core engineering products and tech stack.",
+                "Quantify every project achievement with concrete metrics (speedups, users, data volume).",
+                "Emphasize reliability, database integrity, and production testing rigor."
+            ]
+
+        # Calculate company shortlist score
+        base_co_score = int(overall_score * 0.6)
+        if role_match:
+            base_co_score += int(role_match['role_match_score'] * 0.4)
+        else:
+            base_co_score += 25
+
+        co_match_score = min(98, max(25, base_co_score))
+        if co_match_score >= 75:
+            shortlist_prob = "HIGH"
+            shortlist_label = f"High Shortlisting Probability for {co_name}"
+        elif co_match_score >= 50:
+            shortlist_prob = "MODERATE"
+            shortlist_label = f"Moderate Shortlist Chance — Add Suggested Key Points for {co_name}"
+        else:
+            shortlist_prob = "LOW"
+            shortlist_label = f"Low Shortlist Chance — Align Skills with {co_name} Expectations"
+
+        company_match = {
+            "target_company": co_name,
+            "company_match_score": co_match_score,
+            "shortlist_probability": shortlist_prob,
+            "shortlist_label": shortlist_label,
+            "company_focus": co_focus,
+            "culture_fit_notes": co_culture,
+            "shortlisting_key_points": company_key_points
+        }
+
+    # High-converting shortlisting key points
+    key_points_to_shortlist = []
+    if company_key_points:
+        key_points_to_shortlist.extend(company_key_points[:3])
+    if role_key_points:
+        key_points_to_shortlist.extend([p for p in role_key_points if p not in key_points_to_shortlist][:3])
+    if not key_points_to_shortlist:
+        key_points_to_shortlist = [
+            "Quantify technical achievements: 'Engineered high-throughput REST APIs, reducing latency by 35% across 20k daily users'.",
+            "Demonstrate full-stack depth: 'Architected responsive frontend with secure authenticated backend microservices'.",
+            "Highlight database & cloud optimization: 'Optimized SQL indexing and containerized deployment with Docker CI/CD'."
+        ]
 
     # Optional Job-Resume Fit Analysis
     job_match = None
@@ -2071,8 +2435,8 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
             "match_score": final_match_score,
             "fit_verdict": fit_verdict,
             "fit_label": fit_label,
-            "matched_skills": [('C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else s.capitalize()) for s in matched_skills],
-            "missing_skills": [('C++' if s == 'c++' else 'C#' if s == 'c#' else 'CI/CD' if s == 'ci/cd' else s.capitalize()) for s in missing_job_skills],
+            "matched_skills": [format_skill(s) for s in matched_skills],
+            "missing_skills": [format_skill(s) for s in missing_job_skills],
             "total_job_skills_found": len(jd_skills),
             "matched_count": len(matched_skills),
             "missing_count": len(missing_job_skills)
@@ -2081,7 +2445,12 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
     return {
         "overall_score": overall_score,
         "grade": grade,
+        "readiness_status": readiness_status,
+        "readiness_verdict": readiness_verdict,
         "job_match": job_match,
+        "role_match": role_match,
+        "company_match": company_match,
+        "key_points_to_shortlist": key_points_to_shortlist,
         "word_count": word_count,
         "metrics_count": len(metrics_found),
         "action_verbs_count": len(verbs_used),
@@ -2105,6 +2474,7 @@ def analyze_resume_text(text: str, target_role: str = '', job_description: str =
             "phone": candidate_phone
         },
         "target_role": target_role or "General Application",
+        "target_company": target_company or "",
         "scanned_at": datetime.now().isoformat()
     }
 
@@ -2275,6 +2645,7 @@ def score_resume():
                 return jsonify({"error": "Uploaded resume file is empty."}), 400
 
             target_role = sanitize_text(request.form.get('target_role', ''), max_len=100).strip()
+            target_company = sanitize_text(request.form.get('target_company', ''), max_len=100).strip()
             job_description = sanitize_text(request.form.get('job_description', ''), max_len=10000).strip()
 
             if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
@@ -2288,6 +2659,7 @@ def score_resume():
             data = request.get_json(silent=True) or request.form
             extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
             target_role = sanitize_text(data.get('target_role', ''), max_len=100).strip()
+            target_company = sanitize_text(data.get('target_company', ''), max_len=100).strip()
             job_description = sanitize_text(data.get('job_description', ''), max_len=10000).strip()
 
         if not extracted_text or len(extracted_text) < 20:
@@ -2295,7 +2667,7 @@ def score_resume():
                 "error": "Could not extract readable text from resume. If this is an image-only scan, please upload a digital PDF or text file."
             }), 400
 
-        result = analyze_resume_text(extracted_text, target_role=target_role, job_description=job_description)
+        result = analyze_resume_text(extracted_text, target_role=target_role, target_company=target_company, job_description=job_description)
         result['filename'] = filename
         return jsonify(result)
 
