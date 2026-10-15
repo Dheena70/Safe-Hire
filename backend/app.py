@@ -1758,7 +1758,7 @@ def parse_salary_value_to_lakhs(val_str: str) -> float:
             if is_pm:
                 annual = val * 12
                 return round(annual / 100000.0, 2)
-            elif val > 10000:
+            elif val >= 500:
                 return round(val / 100000.0, 2)
             elif val > 0:
                 return round(val, 2)
@@ -1839,25 +1839,46 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
     lines = [l.strip() for l in clean_text.split('\n') if l.strip()]
     extracted_company = ""
     extracted_title = ""
-    for line in lines[:10]:
-        if len(line) < 60 and any(w in line.lower() for w in ['ltd', 'private', 'pvt', 'inc', 'technologies', 'solutions', 'corporation', 'services', 'systems', 'consultancy', 'enterprises']):
-            extracted_company = line
+
+    comp_patterns = [
+        r'(?:welcome\s+you\s+to|offer\s+from|employment\s+with)\s+([A-Z][a-zA-Z0-9&.,\s]{2,55}?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Limited|Corporation|Enterprises|Technologies|Solutions))',
+        r'([A-Z][a-zA-Z0-9&.,\s]{2,50}?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Limited|Corporation|Enterprises|Technologies|Solutions))'
+    ]
+    for cp in comp_patterns:
+        cm = re.search(cp, clean_text[:2500])
+        if cm and not any(w in cm.group(1).lower() for w in ['offer', 'employment', 'confidential', 'annexure', 'dear', 'effective']):
+            extracted_company = cm.group(1).strip()
             break
+
+    if not extracted_company:
+        for line in lines[:10]:
+            if len(line) < 60 and any(w in line.lower() for w in ['ltd', 'private', 'pvt', 'inc', 'technologies', 'solutions', 'corporation', 'services', 'systems', 'consultancy', 'enterprises']):
+                extracted_company = line
+                break
     if not extracted_company and lines:
-        extracted_company = lines[0][:50]
+        for line in lines[:5]:
+            if len(line) < 50 and not any(w in line.lower() for w in ['confidential', 'offer of employment', 'appointment letter', 'letter of intent']):
+                extracted_company = line
+                break
+        if not extracted_company:
+            extracted_company = lines[0][:50]
 
-    for line in lines[:15]:
-        pos_m = re.search(r'(?:position|role|designation|post)\s+(?:of\s+)?([a-zA-Z\s/&-]+?)(?:\s+(?:at|in|with|for)\s+.*|$)', line, re.IGNORECASE)
-        if pos_m and len(pos_m.group(1).strip()) > 3:
-            extracted_title = pos_m.group(1).strip()
-            break
-        elif any(w in line.lower() for w in ['developer', 'engineer', 'analyst', 'manager', 'executive', 'assistant', 'intern', 'specialist', 'consultant']):
-            extracted_title = line[:80].strip()
-            break
+    role_pattern = re.search(r'(?:designation\s+(?:will\s+be|is)|role\s*:|position\s*(?:of|:))\s*([A-Za-z\s/&-]{3,50}?)(?:,\s*G\d+|\s*-\s*Analyst|\s+contributing|\.|\n)', clean_text, re.IGNORECASE)
+    if role_pattern and len(role_pattern.group(1).strip()) > 3:
+        extracted_title = role_pattern.group(1).strip()
+    else:
+        for line in lines[:15]:
+            pos_m = re.search(r'(?:position|role|designation|post)\s+(?:of\s+)?([a-zA-Z\s/&-]+?)(?:\s+(?:at|in|with|for)\s+.*|$)', line, re.IGNORECASE)
+            if pos_m and len(pos_m.group(1).strip()) > 3:
+                extracted_title = pos_m.group(1).strip()
+                break
+            elif any(w in line.lower() for w in ['developer', 'engineer', 'analyst', 'manager', 'executive', 'assistant', 'intern', 'specialist', 'consultant']):
+                extracted_title = line[:80].strip()
+                break
 
-    # Clean extracted company name from noisy prefixes
+    # Clean extracted company name and title
     extracted_company = re.sub(r'^(?:offer\s+of\s+employment|appointment\s+letter|letter\s+of\s+intent|job\s+offer)\s*[-:]*\s*', '', extracted_company, flags=re.IGNORECASE).strip()
-    extracted_title = re.sub(r'^(?:position|role|designation|post)\s*[:\-]*\s*(?:of\s+)?', '', extracted_title, flags=re.IGNORECASE).strip()
+    extracted_title = re.sub(r'^(?:your\s+designation\s+(?:will\s+be|is)\s*|position\s*[:\-]*\s*(?:of\s+)?|role\s*[:\-]*\s*|designation\s*[:\-]*\s*)', '', extracted_title, flags=re.IGNORECASE).strip()
     extracted_title = re.sub(r'\s+(?:at|in|with)\s+.*$', '', extracted_title, flags=re.IGNORECASE).strip()
 
     # Extract Location
@@ -1891,19 +1912,19 @@ def analyze_offer_letter_text(raw_text: str) -> dict:
     extracted_salary = salary_match[0] if salary_match else "Not explicitly specified"
 
     # Deep Base / Bonus / Signing / Stocks Extraction
-    base_m = re.search(r'(?:basic|base)\s*(?:salary|pay)?\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k|pm|per\s+month))?)', clean_text, re.IGNORECASE)
+    base_m = re.search(r'(?:basic|base)\s*(?:salary|pay)?\s*(?:will\s+be|is|:|-)?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k|pm|per\s+month|per\s+annum))?)', clean_text, re.IGNORECASE)
     raw_base = base_m.group(1).strip() if base_m else ""
 
-    bonus_m = re.search(r'(?:performance\s+bonus|annual\s+bonus|variable\s+pay|bonus)\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
+    bonus_m = re.search(r'(?:performance\s+bonus|annual\s+bonus|variable\s+pay|statutory\s+bonus|bonus)\s*(?:will\s+be|is|:|-)?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
     raw_bonus = bonus_m.group(1).strip() if bonus_m else "NIL"
 
-    signing_m = re.search(r'(?:signing|joining)\s*bonus\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
+    signing_m = re.search(r'(?:signing|joining)\s*bonus\s*(?:will\s+be|is|:|-)?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
     raw_signing = signing_m.group(1).strip() if signing_m else "NIL"
 
-    stocks_m = re.search(r'(?:total\s+stocks|stocks|esops?|equity|rsu)\s*[:\-]?\s*(?:rs\.?|inr|₹|\$)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|usd|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
+    stocks_m = re.search(r'(?:total\s+stocks|stocks|esops?|equity|rsu)\s*(?:will\s+be|is|:|-)?\s*(?:rs\.?|inr|₹|\$)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|usd|k))?|nil|none|n/?a|0)', clean_text, re.IGNORECASE)
     raw_stocks = stocks_m.group(1).strip() if stocks_m else "NIL"
 
-    ctc_m = re.search(r'(?:total\s+ctc|ctc|cost\s+to\s+company|package|gross\s+annual|annual\s+salary)\s*[:\-]?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|lac|lakhs|per\s+annum))?)', clean_text, re.IGNORECASE)
+    ctc_m = re.search(r'(?:annual\s+ctc|total\s+ctc|cost\s+to\s+company|ctc|annual\s+salary|package|gross\s+annual)\s*(?:will\s+be|is|:|-)?\s*(?:rs\.?|inr|₹)?\s*([0-9.,]+(?:\s*(?:lakhs?|lpa|lac|lakhs|per\s+annum))?)', clean_text, re.IGNORECASE)
     raw_ctc = ctc_m.group(1).strip() if ctc_m else (extracted_salary if extracted_salary != "Not explicitly specified" else "")
 
     base_num = parse_salary_value_to_lakhs(raw_base)
@@ -2098,8 +2119,19 @@ def extract_text_and_meta_from_pdf(file_bytes: bytes) -> tuple[str, dict]:
                 except Exception:
                     pass
             pages_text.append(t)
-
         extracted_text = "\n".join(pages_text).strip()
+
+        # Normalize fragmented PDFs where words are output on single lines
+        if extracted_text:
+            raw_lines = [l.strip() for l in extracted_text.split('\n')]
+            non_empty = [l for l in raw_lines if l]
+            if len(non_empty) >= 10:
+                avg_len = sum(len(l) for l in non_empty[:50]) / max(1, len(non_empty[:50]))
+                if avg_len < 15:
+                    flow = ' '.join(non_empty)
+                    flow = re.sub(r'\s+([0-9]+\.\s+[A-Z\s]+:)', r'\n\1', flow)
+                    flow = re.sub(r'\s+(CONFIDENTIAL|OFFER OF EMPLOYMENT|ANNEXURE [A-Z]|EXHIBIT \d+|Dear\s+[A-Za-z]+)', r'\n\1', flow)
+                    extracted_text = flow
 
         # Stream regex fallback if pypdf extract_text found zero text (e.g. non-standard font encoding)
         if not extracted_text:
