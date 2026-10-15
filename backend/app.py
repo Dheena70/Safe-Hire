@@ -2727,6 +2727,7 @@ def scan_offer_letter():
         file_size_kb = 0
         is_image_file = False
         image_meta = {}
+        client_ocr = ""
 
         # Check if file was uploaded in multipart/form-data or binary stream
         file_bytes = b''
@@ -2794,8 +2795,9 @@ def scan_offer_letter():
             analysis = analyze_offer_letter_text(extracted_text)
             analysis['filename'] = filename
             analysis['scanned_at'] = datetime.now().isoformat()
-            analysis['is_scanned_image'] = is_image_file
+            analysis['is_scanned_image'] = False
             analysis['is_photo'] = is_image_file
+            analysis['ocr_extracted'] = True if (is_image_file or client_ocr) else False
             if is_image_file and image_meta:
                 analysis['image_meta'] = image_meta
                 if 'extracted_details' in analysis:
@@ -2912,24 +2914,54 @@ def score_resume():
         target_role = ""
         job_description = ""
 
-        if 'file' in request.files:
-            file_obj = request.files['file']
-            filename = sanitize_text(file_obj.filename or 'resume.pdf', max_len=100)
-            file_bytes = file_obj.read()
-            if len(file_bytes) == 0:
-                return jsonify({"error": "Uploaded resume file is empty."}), 400
+        file_bytes = b''
+        if request.files:
+            file_obj = request.files.get('file') or next(iter(request.files.values()), None)
+            if file_obj:
+                filename = sanitize_text(file_obj.filename or 'resume.pdf', max_len=100)
+                file_bytes = file_obj.read()
+        elif request.data and (request.data[:4] == b'%PDF' or request.data[:8] == b'\x89PNG\r\n\x1a\n' or request.data[:2] == b'\xff\xd8'):
+            file_bytes = request.data
+            filename = sanitize_text(request.headers.get('X-File-Name', 'resume.pdf'), max_len=100)
 
+        if file_bytes:
             target_role = sanitize_text(request.form.get('target_role', ''), max_len=100).strip()
             target_company = sanitize_text(request.form.get('target_company', ''), max_len=100).strip()
             job_description = sanitize_text(request.form.get('job_description', ''), max_len=10000).strip()
 
-            if filename.lower().endswith('.pdf') or file_bytes[:4] == b'%PDF':
-                extracted_text, _ = extract_text_and_meta_from_pdf(file_bytes)
-            else:
-                try:
-                    extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
-                except Exception:
-                    extracted_text = ""
+            # Client-supplied OCR text
+            client_ocr = request.form.get('ocr_text', '').strip()
+            if client_ocr:
+                extracted_text = sanitize_text(client_ocr, max_len=30000)
+
+            if not extracted_text:
+                lower_name = filename.lower()
+                if lower_name.endswith('.pdf') or file_bytes[:4] == b'%PDF':
+                    extracted_text, _ = extract_text_and_meta_from_pdf(file_bytes)
+                elif lower_name.endswith(('.docx', '.doc')) or file_bytes[:4] == b'PK\x03\x04':
+                    try:
+                        import zipfile
+                        import xml.etree.ElementTree as ET
+                        with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+                            xml_content = z.read('word/document.xml')
+                            tree = ET.fromstring(xml_content)
+                            paragraphs = []
+                            for p in tree.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p'):
+                                texts = [node.text for node in p.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t') if node.text]
+                                if texts:
+                                    paragraphs.append(''.join(texts))
+                            extracted_text = '\n'.join(paragraphs)
+                    except Exception as docx_err:
+                        logger.warning(f"DOCX extraction fallback: {docx_err}")
+                        try:
+                            extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
+                        except Exception:
+                            extracted_text = ""
+                else:
+                    try:
+                        extracted_text = file_bytes.decode('utf-8', errors='ignore').strip()
+                    except Exception:
+                        extracted_text = ""
         else:
             data = request.get_json(silent=True) or request.form
             extracted_text = sanitize_text(data.get('text', ''), max_len=30000).strip()
@@ -2939,7 +2971,7 @@ def score_resume():
 
         if not extracted_text or len(extracted_text) < 20:
             return jsonify({
-                "error": "Could not extract readable text from resume. If this is an image-only scan, please upload a digital PDF or text file."
+                "error": "Could not extract readable text from resume. If this is an image-only scan, please upload a digital PDF, DOCX, or text file."
             }), 400
 
         result = analyze_resume_text(extracted_text, target_role=target_role, target_company=target_company, job_description=job_description)

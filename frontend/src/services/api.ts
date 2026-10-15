@@ -180,6 +180,7 @@ export interface OfferScanResponse {
   risk_score: number;
   is_scanned_image?: boolean;
   is_photo?: boolean;
+  ocr_extracted?: boolean;
   image_meta?: {
     format?: string;
     width?: number;

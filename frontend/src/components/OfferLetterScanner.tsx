@@ -803,21 +803,21 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                       >
                         {isReal
                           ? result.status_label
-                          : result.is_scanned_image || result.verdict === 'SCANNED_DOCUMENT_REVIEW'
+                          : (result.is_scanned_image && !result.ocr_extracted) || result.verdict === 'SCANNED_DOCUMENT_REVIEW'
                           ? 'FAKE / FRAUD RISK (SCANNED PHOTO EVASION)'
                           : result.status_label}
                       </h3>
                       <p className="text-sm text-slate-300 max-w-lg">
                         {isReal
                           ? 'No predatory clauses or suspicious fee demands detected. Always verify salary terms and physical workplace.'
-                          : result.is_scanned_image || result.verdict === 'SCANNED_DOCUMENT_REVIEW'
+                          : (result.is_scanned_image && !result.ocr_extracted) || result.verdict === 'SCANNED_DOCUMENT_REVIEW'
                           ? 'DECISION: FAKE / UNVERIFIED. Legitimate employers (TCS, Zoho, Infosys, etc.) issue official digital vector PDFs directly from corporate HR portals. They NEVER send scanned paper photos or WhatsApp screenshots. Because this document has no verifiable digital vector text layer, it is classified as FAKE / SCAM RISK. Do not pay any fees.'
                           : result.verdict === 'SUSPICIOUS'
                           ? 'DECISION: FAKE / HIGH RISK. Several deceptive signals or unverified contacts were flagged. Do not proceed or transfer money.'
                           : 'CRITICAL WARNING: This document exhibits high-probability recruitment fraud signatures. Never pay any fees.'}
                       </p>
 
-                      {result.is_scanned_image && (
+                      {(result.is_scanned_image && !result.ocr_extracted) && (
                         <div className="pt-2">
                           <button
                             type="button"
@@ -1042,7 +1042,7 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
           </div>
 
           {/* Critical Corporate Impersonation Alert */}
-          {(!isReal || result.is_scanned_image) && (
+          {(!isReal || (result.is_scanned_image && !result.ocr_extracted)) && (
             <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 shadow-xl space-y-2.5 animate-fadeIn">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
@@ -1136,11 +1136,13 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-200">3. Document Layer Forensics</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    result.is_scanned_image
+                    result.is_scanned_image && !result.ocr_extracted
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : result.ocr_extracted
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                       : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                   }`}>
-                    {result.is_scanned_image ? 'Scanned Evasion' : 'Digital Vector ATS'}
+                    {result.is_scanned_image && !result.ocr_extracted ? 'Scanned Evasion' : result.ocr_extracted ? 'OCR Document Verified' : 'Digital Vector ATS'}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
