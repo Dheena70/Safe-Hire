@@ -497,14 +497,12 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
             </button>
           </div>
         </div>
-      ) : (
-        /* Results View */
-        <div className="space-y-6 animate-fadeIn">
-          {(() => {
-            const isReal = result.binary_verdict === 'REAL' || (result.verdict === 'GENUINE' && result.legitimacy_score >= 70);
-            return (
-              <>
-                {/* 100% Decisive Binary Verdict Banner (TRUE vs FALSE) */}
+      ) : (() => {
+        const isReal = result.binary_verdict === 'REAL' || (result.verdict === 'GENUINE' && result.legitimacy_score >= 70);
+        return (
+          /* Results View */
+          <div className="space-y-6 animate-fadeIn">
+            {/* 100% Decisive Binary Verdict Banner (TRUE vs FALSE) */}
                 <div
                   className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xl transition-all ${
                     isReal
@@ -661,9 +659,6 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
                     </div>
                   </div>
                 </div>
-              </>
-            );
-          })()}
 
           {/* Extracted Details Grid */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
@@ -826,6 +821,27 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
             </div>
           </div>
 
+          {/* Critical Corporate Impersonation Alert */}
+          {(!isReal || result.is_scanned_image) && (
+            <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 shadow-xl space-y-2.5 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                <h4 className="text-sm font-bold text-amber-300">
+                  Corporate Impersonation Warning: Why Real Companies Appear on Fake Letters
+                </h4>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed pl-11">
+                If this document mentions a well-known company like <strong>L&T, Tata, Infosys, Reliance, Wipro, or Microsoft</strong>, please note that while the company itself is 100% genuine and listed on Google, fraudsters routinely copy legitimate corporate names, logos, and registered addresses to trick job seekers. Authentic enterprises <strong>never issue scanned paper photos</strong>, <strong>never communicate via personal WhatsApp / Telegram</strong>, and <strong>never demand security deposits, laptop fees, or registration charges</strong>.
+              </p>
+            </div>
+          )}
+
           {/* Actionable Recommendations */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
             <h4 className="text-sm font-bold text-cyan-400 flex items-center gap-2">
@@ -848,6 +864,120 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
             </div>
           </div>
 
+          {/* 6 Core AI Forensic Inspection Security Parameters */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <polyline points="9 12 11 14 15 10"/>
+                </svg>
+                <span>How SafeHire Detects Real vs Fake Offers: 6 Core Security Parameters</span>
+              </h4>
+              <p className="text-xs text-slate-400">
+                SafeHire inspects every document against 6 universal forensic checks to protect candidates from recruitment scams:
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 pt-1">
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">1. Financial Demands</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    result.red_flags.some(r => r.toLowerCase().includes('demand') || r.toLowerCase().includes('fee') || r.toLowerCase().includes('payment'))
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {result.red_flags.some(r => r.toLowerCase().includes('demand') || r.toLowerCase().includes('fee') || r.toLowerCase().includes('payment')) ? 'Fee Flagged' : 'Zero Fee Checked'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Real employers charge Rs. 0. Demands for registration fees, laptop insurance, or UPI/QR payments are 100% scam signatures.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">2. Email & Domain Check</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    result.red_flags.some(r => r.toLowerCase().includes('webmail') || r.toLowerCase().includes('gmail'))
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {result.red_flags.some(r => r.toLowerCase().includes('webmail') || r.toLowerCase().includes('gmail')) ? 'Public Webmail' : 'Domain Verified'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Verifies if HR contacts use official corporate domain (@company.com) vs free accounts (@gmail.com, @yahoo.com).
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">3. Document Layer Forensics</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    result.is_scanned_image
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {result.is_scanned_image ? 'Scanned Evasion' : 'Digital Vector ATS'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Authentic companies export digitally signed vector PDFs. Scanned camera photos are evasion tactics used by fraudsters.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">4. MCA CIN Registry</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    result.extracted_details.cin && result.extracted_details.cin !== 'Not Found' && !result.extracted_details.cin.includes('No CIN')
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {result.extracted_details.cin && result.extracted_details.cin !== 'Not Found' && !result.extracted_details.cin.includes('No CIN') ? 'CIN Verified' : 'No CIN In Letter'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Cross-checks the 21-digit Corporate Identification Number against the Government Ministry of Corporate Affairs database.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">5. Pressure & Threats</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    result.red_flags.some(r => r.toLowerCase().includes('threat') || r.toLowerCase().includes('pressure') || r.toLowerCase().includes('hours'))
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {result.red_flags.some(r => r.toLowerCase().includes('threat') || r.toLowerCase().includes('pressure') || r.toLowerCase().includes('hours')) ? 'Threat Clauses' : 'Clean Terms'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Scans for high-pressure extortion language ("pay within 24 hours or face police complaint/legal notice").
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800/90 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">6. Brand Impersonation</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    result.red_flags.some(r => r.toLowerCase().includes('impersonation') || r.toLowerCase().includes('scanned'))
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {result.red_flags.some(r => r.toLowerCase().includes('impersonation') || r.toLowerCase().includes('scanned')) ? 'Impersonation Risk' : 'Authentic Alignment'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Detects if known Fortune 500 / Indian conglomerate brand names are being spoofed without official portal delivery.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Reset Button */}
           <div className="pt-2 text-center">
             <button
@@ -864,7 +994,8 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
             </button>
           </div>
         </div>
-      )}
+      );
+    })()}
     </div>
   );
 };
