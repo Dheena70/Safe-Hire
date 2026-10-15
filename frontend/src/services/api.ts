@@ -6,10 +6,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL !== undefined
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  timeout: 45000,
 });
 
 // Turns an axios error into a user-friendly message
@@ -336,11 +333,15 @@ export const scanOfferLetter = async (input: File | string, ocrText?: string): P
     return response.data;
   } else {
     const formData = new FormData();
-    formData.append('file', input);
+    formData.append('file', input, input.name || 'document.pdf');
     if (ocrText && ocrText.trim()) {
       formData.append('ocr_text', ocrText.trim());
     }
-    const response = await api.post('/api/scan-offer-letter', formData);
+    const response = await api.post('/api/scan-offer-letter', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 };
@@ -361,7 +362,7 @@ export const scoreResume = async (
     return response.data;
   } else {
     const formData = new FormData();
-    formData.append('file', input);
+    formData.append('file', input, input.name || 'resume.pdf');
     if (targetRole) {
       formData.append('target_role', targetRole);
     }
@@ -371,7 +372,11 @@ export const scoreResume = async (
     if (jobDescription) {
       formData.append('job_description', jobDescription);
     }
-    const response = await api.post('/api/score-resume', formData);
+    const response = await api.post('/api/score-resume', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 };

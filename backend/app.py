@@ -2728,18 +2728,24 @@ def scan_offer_letter():
         is_image_file = False
         image_meta = {}
 
-        # Check if file was uploaded in multipart/form-data
-        if 'file' in request.files:
-            file_obj = request.files['file']
-            filename = sanitize_text(file_obj.filename or 'document.pdf', max_len=100)
-            file_bytes = file_obj.read()
-            if len(file_bytes) == 0:
-                return jsonify({"error": "Uploaded file is empty."}), 400
+        # Check if file was uploaded in multipart/form-data or binary stream
+        file_bytes = b''
+        if request.files:
+            file_obj = request.files.get('file') or next(iter(request.files.values()), None)
+            if file_obj:
+                filename = sanitize_text(file_obj.filename or 'document.pdf', max_len=100)
+                file_bytes = file_obj.read()
+        elif request.data and (request.data[:4] == b'%PDF' or request.data[:8] == b'\x89PNG\r\n\x1a\n' or request.data[:2] == b'\xff\xd8'):
+            file_bytes = request.data
+            filename = sanitize_text(request.headers.get('X-File-Name', 'document.pdf'), max_len=100)
 
+        if file_bytes:
             file_size_kb = len(file_bytes) // 1024
 
             # Check for client-supplied OCR text
             client_ocr = request.form.get('ocr_text', '').strip()
+            if not client_ocr and request.is_json:
+                client_ocr = (request.get_json(silent=True) or {}).get('ocr_text', '').strip()
             if client_ocr:
                 extracted_text = sanitize_text(client_ocr, max_len=30000)
 
