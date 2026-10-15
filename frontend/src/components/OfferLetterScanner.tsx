@@ -500,137 +500,170 @@ export const OfferLetterScanner: React.FC<Props> = ({ initialDocumentType = 'off
       ) : (
         /* Results View */
         <div className="space-y-6 animate-fadeIn">
-          {/* Top Verdict Banner */}
-          <div
-            className={`rounded-2xl p-6 sm:p-8 border shadow-2xl relative overflow-hidden ${
-              result.verdict === 'GENUINE'
-                ? 'bg-gradient-to-br from-emerald-950/70 via-slate-900 to-slate-950 border-emerald-500/40 shadow-emerald-950/30'
-                : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
-                ? 'bg-gradient-to-br from-amber-950/80 via-slate-900 to-slate-950 border-amber-500/40 shadow-amber-950/30'
-                : result.verdict === 'SUSPICIOUS'
-                ? 'bg-gradient-to-br from-amber-950/70 via-slate-900 to-slate-950 border-amber-500/40 shadow-amber-950/30'
-                : 'bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-950 border-rose-500/40 shadow-rose-950/40'
-            }`}
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-block w-3 h-3 rounded-full animate-pulse ${
-                      result.verdict === 'GENUINE'
-                        ? 'bg-emerald-400'
-                        : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
-                        ? 'bg-amber-400'
-                        : result.verdict === 'SUSPICIOUS'
-                        ? 'bg-amber-400'
-                        : 'bg-rose-400'
-                    }`}
-                  />
-                  <span className="text-xs font-bold tracking-wider uppercase text-slate-400">
-                    {result.is_photo
-                      ? 'Photo / Image Forensic Analysis'
-                      : result.is_scanned_image
-                      ? 'Scanned Document Forensics'
-                      : 'Forensic Verdict'}
-                  </span>
-                </div>
-                <h3
-                  className={`text-2xl sm:text-3xl font-black tracking-tight ${
-                    result.verdict === 'GENUINE'
-                      ? 'text-emerald-300'
-                      : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
-                      ? 'text-amber-300'
-                      : result.verdict === 'SUSPICIOUS'
-                      ? 'text-amber-300'
-                      : 'text-rose-300'
+          {(() => {
+            const isReal = result.binary_verdict === 'REAL' || (result.verdict === 'GENUINE' && result.legitimacy_score >= 70);
+            return (
+              <>
+                {/* 100% Decisive Binary Verdict Banner (TRUE vs FALSE) */}
+                <div
+                  className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xl transition-all ${
+                    isReal
+                      ? 'bg-gradient-to-r from-emerald-950/90 via-slate-900 to-emerald-950/60 border-emerald-500/60 text-emerald-200 shadow-emerald-950/50'
+                      : 'bg-gradient-to-r from-rose-950/95 via-slate-900 to-rose-950/70 border-rose-500/60 text-rose-200 shadow-rose-950/50'
                   }`}
                 >
-                  {result.status_label}
-                </h3>
-                <p className="text-sm text-slate-300 max-w-lg">
-                  {result.verdict === 'GENUINE'
-                    ? 'No predatory clauses or suspicious fee demands detected. Always verify salary terms and physical workplace.'
-                    : result.is_photo && result.verdict === 'SCANNED_DOCUMENT_REVIEW'
-                    ? 'The uploaded file is a photo/screenshot without embedded digital vector fonts. Fake job syndicates frequently share appointment letters on WhatsApp or Telegram as photos to bypass automated scanners. Review the visual forensics below.'
-                    : result.verdict === 'SCANNED_DOCUMENT_REVIEW' || result.is_scanned_image
-                    ? 'The uploaded document contains scanned raster images without selectable vector text layers. Many scam networks use scanned bitmaps to evade automated fraud detectors. Review the document forensics below, or paste the text directly.'
-                    : result.verdict === 'SUSPICIOUS'
-                    ? 'Several caution indicators were flagged. Contact HR through official website channels before signing.'
-                    : 'CRITICAL WARNING: This document exhibits high-probability recruitment fraud signatures. Never pay any fees.'}
-                </p>
-
-                {result.is_scanned_image && (
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setResult(null);
-                        setSelectedFile(null);
-                        setActiveMode('paste');
-                        setError(null);
-                      }}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-bold transition shadow-sm"
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${
+                        isReal ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500 text-white'
+                      }`}
                     >
-                      <svg className="w-3.5 h-3.5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                      </svg>
-                      <span>Have Offer Email / Text? Switch to Paste Mode</span>
-                    </button>
+                      {isReal ? (
+                        <svg className="w-7 h-7 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                          <path d="m9 12 2 2 4-4"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-7 h-7 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                          <line x1="15" y1="9" x2="9" y2="15"/>
+                          <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-extrabold uppercase tracking-widest opacity-80">
+                        Definitive Verification Verdict
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                        {isReal ? 'VERDICT: REAL (GENUINE OFFER)' : 'VERDICT: FAKE (FRAUD / SCAM RISK)'}
+                      </h3>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Legitimacy Score Circle */}
-              <div className="flex items-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 shrink-0">
-                <div className="relative w-20 h-20 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-slate-800"
-                      strokeWidth="3.5"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className={
-                        result.legitimacy_score >= 70
-                          ? 'text-emerald-400'
-                          : result.legitimacy_score >= 40
-                          ? 'text-amber-400'
-                          : 'text-rose-400'
-                      }
-                      strokeDasharray={`${result.legitimacy_score}, 100`}
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-black text-slate-100">
-                      {result.legitimacy_score}%
+                  <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                    <span
+                      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-md ${
+                        isReal
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-rose-500 text-white animate-pulse'
+                      }`}
+                    >
+                      {isReal ? 'TRUE / VERIFIED REAL' : 'FALSE / REJECT (FAKE)'}
                     </span>
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-400 uppercase">Legitimacy Score</div>
-                  <div className="text-sm font-bold text-slate-200">
-                    {result.is_scanned_image
-                      ? 'Requires Manual Caution'
-                      : result.legitimacy_score >= 70
-                      ? 'High Confidence'
-                      : result.legitimacy_score >= 40
-                      ? 'Moderate Caution'
-                      : 'Severe Fraud Risk'}
+
+                {/* Top Forensic Analysis Banner */}
+                <div
+                  className={`rounded-2xl p-6 sm:p-8 border shadow-2xl relative overflow-hidden ${
+                    isReal
+                      ? 'bg-gradient-to-br from-emerald-950/70 via-slate-900 to-slate-950 border-emerald-500/40 shadow-emerald-950/30'
+                      : 'bg-gradient-to-br from-rose-950/80 via-slate-900 to-slate-950 border-rose-500/40 shadow-rose-950/40'
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block w-3 h-3 rounded-full animate-pulse ${
+                            isReal ? 'bg-emerald-400' : 'bg-rose-400'
+                          }`}
+                        />
+                        <span className="text-xs font-bold tracking-wider uppercase text-slate-400">
+                          {result.is_photo
+                            ? 'Photo / Image Forensic Analysis'
+                            : result.is_scanned_image
+                            ? 'Scanned Document Forensics'
+                            : 'Forensic Verdict'}
+                        </span>
+                      </div>
+                      <h3
+                        className={`text-2xl sm:text-3xl font-black tracking-tight ${
+                          isReal ? 'text-emerald-300' : 'text-rose-300'
+                        }`}
+                      >
+                        {isReal
+                          ? result.status_label
+                          : result.is_scanned_image || result.verdict === 'SCANNED_DOCUMENT_REVIEW'
+                          ? 'FAKE / FRAUD RISK (SCANNED PHOTO EVASION)'
+                          : result.status_label}
+                      </h3>
+                      <p className="text-sm text-slate-300 max-w-lg">
+                        {isReal
+                          ? 'No predatory clauses or suspicious fee demands detected. Always verify salary terms and physical workplace.'
+                          : result.is_scanned_image || result.verdict === 'SCANNED_DOCUMENT_REVIEW'
+                          ? 'DECISION: FAKE / UNVERIFIED. Legitimate employers (TCS, Zoho, Infosys, etc.) issue official digital vector PDFs directly from corporate HR portals. They NEVER send scanned paper photos or WhatsApp screenshots. Because this document has no verifiable digital vector text layer, it is classified as FAKE / SCAM RISK. Do not pay any fees.'
+                          : result.verdict === 'SUSPICIOUS'
+                          ? 'DECISION: FAKE / HIGH RISK. Several deceptive signals or unverified contacts were flagged. Do not proceed or transfer money.'
+                          : 'CRITICAL WARNING: This document exhibits high-probability recruitment fraud signatures. Never pay any fees.'}
+                      </p>
+
+                      {result.is_scanned_image && (
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResult(null);
+                              setSelectedFile(null);
+                              setActiveMode('paste');
+                              setError(null);
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs font-bold transition shadow-sm"
+                          >
+                            <svg className="w-3.5 h-3.5 text-rose-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                              <line x1="16" y1="13" x2="8" y2="13"/>
+                              <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            <span>Have Offer Email / Text? Switch to Paste Mode</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Legitimacy Score Circle */}
+                    <div className="flex items-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 shrink-0">
+                      <div className="relative w-20 h-20 flex items-center justify-center">
+                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                          <path
+                            className="text-slate-800"
+                            strokeWidth="3.5"
+                            stroke="currentColor"
+                            fill="none"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          />
+                          <path
+                            className={isReal ? 'text-emerald-400' : 'text-rose-400'}
+                            strokeDasharray={`${result.legitimacy_score}, 100`}
+                            strokeWidth="3.5"
+                            strokeLinecap="round"
+                            stroke="currentColor"
+                            fill="none"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-xl font-black text-slate-100">
+                            {result.legitimacy_score}%
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-slate-400 uppercase">Legitimacy Score</div>
+                        <div className="text-sm font-bold text-slate-200">
+                          {isReal
+                            ? 'Verified Legitimate'
+                            : 'Severe Fraud Risk (Fake)'}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </>
+            );
+          })()}
 
           {/* Extracted Details Grid */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">

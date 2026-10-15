@@ -150,6 +150,7 @@ export interface AnalyticsData {
 
 export interface OfferScanResponse {
   verdict: 'GENUINE' | 'SUSPICIOUS' | 'HIGH_RISK_FRAUD' | 'SCANNED_DOCUMENT_REVIEW';
+  binary_verdict?: 'REAL' | 'FAKE';
   status_label: string;
   legitimacy_score: number; // 0 - 100
   risk_score: number;
